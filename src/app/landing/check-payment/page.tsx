@@ -1,49 +1,48 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+// Import Library
+import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-
-import PaymentPopup from "@/src/app/components/PaymentPopup";
-import {
-    getDeviceAuthHeaders,
-    getStoredDeviceCredential,
-    handleDeviceResponseStatus,
-} from "@/src/app/lib/device";
-import { barrierHardwareAdapter } from "@/src/app/lib/hardwareAdapter";
+// Import Components
+import PaymentOptions from "@/src/app/components/payment-options";
+// Import Lib
 import { normalizePlateNo } from "@/src/app/lib/plate";
-import { BARRIER_RETURN_STORAGE_KEY } from "@/src/app/lib/storageKeys";
-import type { ClientTransactionResponse } from "@/src/app/type/client";
-
-import "@/src/app/css/BarrierGate.css";
-
+import { BARRIER_RETURN_STORAGE_KEY } from "@/src/app/lib/storage-keys";
+import { lookupPlate, lookupTransactionId } from "@/src/app/lib/transaction-lookup";
+// Import Types
+import type { ClientTransaction } from "@/src/app/type/api.type";
+import type { CheckPaymentPageState } from "@/src/app/type/barrier.type";
+// Import CSS
+import "@/src/app/css/barrier-gate.css";
+// Import Icons
 import { LuCheck, LuLoader, LuX } from "react-icons/lu";
 
-type PageState = "loading" | "ready" | "paying" | "open" | "error";
+/* -------------------------------------- Config -------------------------------------- */
 
-export default function BarrierCheckPaymentPage() {
+// Config เวลาที่แสดงผลชำระสำเร็จก่อนกลับไปหน้าไม้กั้น
+const RETURN_TO_BARRIER_MS = 2500;
+
+/* -------------------------------------- Functions -------------------------------------- */
+
+// Function แสดงหน้าชำระเงินที่ไม้กั้น (ไม่เปิดไม้กั้นเอง ต้องรอ LPR ส่ง openGate === true ที่หน้าไม้กั้น)
+function BarrierCheckPaymentPage(): ReactElement {
     const router = useRouter();
     const searchParams = useSearchParams();
     const t = useTranslations("BarrierGate");
     const common = useTranslations("Common");
     const plateNo = normalizePlateNo(searchParams.get("plateNo") ?? "");
     const transactionId = searchParams.get("transactionId")?.trim() ?? "";
-    const queryDeviceId = searchParams.get("deviceId")?.trim() ?? "";
-    const [transaction, setTransaction] =
-        useState<ClientTransactionResponse | null>(null);
-    const [state, setState] = useState<PageState>("loading");
+
+    const [transaction, setTransaction] = useState<ClientTransaction | null>(null);
+    const [state, setState] = useState<CheckPaymentPageState>("loading");
     const [message, setMessage] = useState("");
-    const [isPaymentOpen, setIsPaymentOpen] = useState(false);
 
-    const credential = getStoredDeviceCredential();
-    const barrierDeviceId =
-        queryDeviceId || (credential?.deviceType === "barrier_gate"
-            ? credential.deviceId
-            : "");
-    const remainingAmount = transaction?.amount?.remainingAmount ?? 0;
+    const remainingAmount = transaction?.amount.remainingAmount ?? 0;
 
-    const returnToBarrier = useCallback(() => {
+    const returnToBarrier = useCallback((): void => {
         const returnUrl = sessionStorage.getItem(BARRIER_RETURN_STORAGE_KEY);
+
         if (returnUrl?.startsWith("/landing/barrier-gate")) {
             sessionStorage.removeItem(BARRIER_RETURN_STORAGE_KEY);
             router.replace(returnUrl);
@@ -56,61 +55,41 @@ export default function BarrierCheckPaymentPage() {
     useEffect(() => {
         let cancelled = false;
 
-        const loadTransaction = async () => {
-            if (!plateNo) {
+        const loadTransaction = async (): Promise<void> => {
+            if (!plateNo && !transactionId) {
                 setState("error");
                 setMessage(t("errorNotFound"));
                 return;
             }
 
-            try {
-                setState("loading");
-                setMessage("");
+            setState("loading");
+            setMessage("");
 
-                const query = new URLSearchParams({ plateNo });
-                if (barrierDeviceId) {
-                    query.set("deviceId", barrierDeviceId);
-                }
+            // lpr_detected มี transactionId จึงค้นด้วย id ก่อนเพื่อให้ตรงคันแน่นอน
+            const outcome = transactionId ? await lookupTransactionId(transactionId) : await lookupPlate(plateNo);
 
-                const response = await fetch(
-                    `/api/client/transaction?${query.toString()}`,
-                    {
-                        method: "GET",
-                        headers: barrierDeviceId
-                            ? getDeviceAuthHeaders("barrier-gate")
-                            : {},
-                        cache: "no-store",
-                    }
-                );
-                const result = (await response.json().catch(() => null)) as
-                    | ClientTransactionResponse
-                    | { message?: string; status?: string }
-                    | null;
+            if (cancelled || outcome.kind === "redirected") return;
 
-                if (
-                    handleDeviceResponseStatus(
-                        response,
-                        result as { message?: string; status?: string } | null
-                    )
-                ) {
+            switch (outcome.kind) {
+                case "found":
+                    setTransaction(outcome.transaction);
+                    setState("ready");
+                    setMessage(t("actionPaymentRequired"));
                     return;
-                }
-
-                if (cancelled) return;
-
-                if (!response.ok || !result || !("transactionId" in result)) {
+                case "not_found":
+                case "invalid_plate":
+                case "multiple":
                     setState("error");
-                    setMessage(t(response.status === 404 ? "errorNotFound" : "errorCheckFailed"));
+                    setMessage(t("errorNotFound"));
                     return;
-                }
-
-                setTransaction(result);
-                setState("ready");
-                setMessage(t("actionPaymentRequired"));
-            } catch {
-                if (cancelled) return;
-                setState("error");
-                setMessage(t("errorCheckFailed"));
+                case "already_processed":
+                    setState("error");
+                    setMessage(t("denyProcessed"));
+                    return;
+                case "error":
+                    setState("error");
+                    setMessage(t("errorCheckFailed"));
+                    return;
             }
         };
 
@@ -119,23 +98,13 @@ export default function BarrierCheckPaymentPage() {
         return () => {
             cancelled = true;
         };
-    }, [barrierDeviceId, plateNo, t]);
+    }, [plateNo, t, transactionId]);
 
-    const handlePaymentSuccess = async () => {
-        setIsPaymentOpen(false);
-        setState("paying");
-        setMessage(t("paymentSuccessOpeningGate"));
-
-        try {
-            await barrierHardwareAdapter.openGate();
-            setState("open");
-            setMessage(t("opened"));
-            window.setTimeout(returnToBarrier, 2500);
-        } catch (error) {
-            console.error("Barrier hardware open failed after payment:", error);
-            setState("error");
-            setMessage(t("offline"));
-        }
+    // ช่องทาง gate ปิดรายการเป็น completed ให้แล้ว จึงกลับไปรอ lpr_detected ขาออกที่หน้าไม้กั้น
+    const handlePaymentSuccess = (): void => {
+        setState("paid");
+        setMessage(t("paymentSuccessWaitLpr"));
+        window.setTimeout(returnToBarrier, RETURN_TO_BARRIER_MS);
     };
 
     return (
@@ -143,25 +112,15 @@ export default function BarrierCheckPaymentPage() {
             <section className="barrier-gate-page__content">
                 <header className="barrier-gate-header">
                     <div className="barrier-gate-header__icon">
-                        {state === "loading" || state === "paying" ? (
-                            <LuLoader className="barrier-gate-spin" />
-                        ) : state === "open" ? (
-                            <LuCheck />
-                        ) : state === "error" ? (
-                            <LuX />
-                        ) : (
-                            <LuX />
-                        )}
+                        {state === "loading" ? <LuLoader className="barrier-gate-spin" /> : state === "paid" ? <LuCheck /> : <LuX />}
                     </div>
                     <h1>{t("checkPaymentTitle")}</h1>
                     <p>{t("checkPaymentSubtitle")}</p>
                 </header>
 
                 <section className="barrier-gate-capture" aria-live="polite">
-                    <span className="barrier-gate-capture__label">
-                        {transactionId ? t("transactionId") : t("inputLabel")}
-                    </span>
-                    <strong>{plateNo || transactionId || "-"}</strong>
+                    <span className="barrier-gate-capture__label">{plateNo ? t("inputLabel") : t("transactionId")}</span>
+                    <strong>{transaction?.plateNo || plateNo || transactionId || "-"}</strong>
                     <p>{message || common("pleaseWait")}</p>
                 </section>
 
@@ -180,36 +139,23 @@ export default function BarrierCheckPaymentPage() {
                             <strong>{transaction.status}</strong>
                         </div>
 
-                        <button
-                            type="button"
-                            className="barrier-gate-payment__button"
-                            onClick={() => setIsPaymentOpen(true)}
+                        <PaymentOptions
+                            variant="button"
+                            transaction={transaction}
                             disabled={state !== "ready" || remainingAmount <= 0}
-                        >
-                            {t("payNow")}
-                        </button>
+                            onSuccess={handlePaymentSuccess}
+                        />
                     </section>
                 ) : null}
 
                 {state === "error" ? (
-                    <button
-                        type="button"
-                        className="barrier-gate-reset"
-                        onClick={returnToBarrier}
-                    >
+                    <button type="button" className="barrier-gate-reset" onClick={returnToBarrier}>
                         {t("reset")}
                     </button>
                 ) : null}
             </section>
-
-            <PaymentPopup
-                open={isPaymentOpen}
-                onClose={() => setIsPaymentOpen(false)}
-                transaction={transaction}
-                paymentDeviceId={barrierDeviceId}
-                paymentDeviceType="barrier-gate"
-                onSuccess={handlePaymentSuccess}
-            />
         </main>
     );
 }
+
+export default BarrierCheckPaymentPage;

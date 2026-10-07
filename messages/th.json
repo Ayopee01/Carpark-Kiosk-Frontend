@@ -52,8 +52,8 @@
     "errorNotFound": "ไม่พบข้อมูลทะเบียนนี้ในระบบ",
     "errorSearchFailed": "ค้นหาข้อมูลทะเบียนไม่สำเร็จ",
     "errorAlreadyProcessed": "รายการนี้ถูกดำเนินการแล้ว",
-    "errorUnexpected": "เกิดข้อผิดพลาด กรุณาลองใหม่"
-    ,"errorPlateTooShort": "เลขทะเบียนต้องมีอย่างน้อย {min} ตัวอักษร"
+    "errorUnexpected": "เกิดข้อผิดพลาด กรุณาลองใหม่",
+    "errorPlateTooShort": "เลขทะเบียนต้องมีอย่างน้อย {min} ตัวอักษร"
   },
   "Search": {
     "noPaymentRequired": "ทะเบียนนี้ไม่มีค่าใช้จ่ายที่ต้องชำระ",
@@ -103,7 +103,15 @@
     "statusPaidWaitingExit": "จ่ายครบ รอรถออก",
     "statusCompleted": "รายการเสร็จสมบูรณ์",
     "statusCancelled": "ยกเลิก",
-    "fastSecure": "รวดเร็วและปลอดภัย"
+    "fastSecure": "รวดเร็วและปลอดภัย",
+    "methodsLoading": "กำลังโหลดช่องทางชำระเงิน...",
+    "methodsEmpty": "ขณะนี้ไม่มีช่องทางชำระเงินที่ใช้ได้ กรุณาติดต่อเจ้าหน้าที่",
+    "methodsLoadFailed": "โหลดช่องทางชำระเงินไม่สำเร็จ",
+    "cardDescription": "ชำระด้วยบัตรผ่านเครื่อง EDC",
+    "promptPayDescription": "สแกน QR Code เพื่อชำระเงิน",
+    "devTestTitle": "Dev Test: จำลองการชำระเงิน",
+    "devTestFailed": "จำลองการชำระเงินไม่สำเร็จ: {message}",
+    "errorAlreadyProcessed": "รายการนี้ถูกดำเนินการแล้ว"
   },
   "PaymentPopup": {
     "title": "ชำระค่าบริการ",
@@ -116,10 +124,15 @@
     "returningHome": "กำลังกลับสู่หน้าหลัก...",
     "creatingQr": "กำลังสร้าง QR Code สำหรับชำระเงิน...",
     "waitingVerification": "รอตรวจสอบการชำระเงิน",
-    "minimumAmountCashier": "ยอดขั้นต่ำไม่ถึง กรุณาชำระผ่าน Cashier",
     "paymentFailed": "ไม่สามารถชำระเงินได้ กรุณาลองใหม่",
     "qrUnavailable": "ไม่พบ QR Code สำหรับชำระเงิน",
-    "qrAlt": "คิวอาร์โค้ดสำหรับชำระเงิน"
+    "qrAlt": "คิวอาร์โค้ดสำหรับชำระเงิน",
+    "amountBelowMinimum": "PromptPay รับยอดขั้นต่ำ {minimumAmount} บาท (ยอดค้าง {remainingAmount} บาท) กรุณาเลือกวิธีชำระอื่น",
+    "noRemainingAmount": "รายการนี้ไม่มียอดที่ต้องชำระแล้ว",
+    "paymentExpired": "QR Code หมดอายุ กรุณาสร้าง QR ใหม่",
+    "paymentReversed": "รายการชำระถูกยกเลิก กรุณาติดต่อเจ้าหน้าที่",
+    "paymentNotApplied": "ได้รับเงินแล้วแต่บันทึกรายการไม่สำเร็จ กรุณาติดต่อเจ้าหน้าที่",
+    "retry": "สร้าง QR ใหม่"
   },
   "Activate": {
     "title": "Smart Carpark",
@@ -136,7 +149,9 @@
     "errorUnexpected": "เกิดข้อผิดพลาด กรุณาลองใหม่",
     "successFallback": "เปิดใช้งานสำเร็จ",
     "redirectingDashboard": "{message} กำลังเข้าสู่หน้า Dashboard...",
-    "redirectingBarrier": "{message} กำลังเข้าสู่หน้า Barrier Gate..."
+    "redirectingBarrier": "{message} กำลังเข้าสู่หน้า Barrier Gate...",
+    "errorInvalidCode": "Activation Code ไม่ถูกต้องหรือหมดอายุ",
+    "errorTooManyRequests": "กรอก Activation Code ผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่"
   },
   "BarrierGate": {
     "checkPaymentTitle": "ชำระเงินหน้าไม้กั้น",
@@ -190,11 +205,16 @@
     "denyUnpaid": "ยังมียอดค้างชำระ กรุณาชำระเงินที่ Kiosk",
     "denyProcessed": "รายการนี้ถูกดำเนินการแล้วหรือถูกยกเลิก",
     "opened": "เปิดไม้กั้นสำเร็จ",
-    "offline": "อุปกรณ์ไม่สามารถเชื่อมต่อระบบได้"
+    "offline": "อุปกรณ์ไม่สามารถเชื่อมต่อระบบได้",
+    "paymentSuccessWaitLpr": "ชำระเงินสำเร็จ กรุณารอระบบตรวจทะเบียนเพื่อเปิดไม้กั้น",
+    "goToPayment": "กำลังไปหน้าชำระเงิน...",
+    "actionUnknown": "ไม่สามารถดำเนินการได้ กรุณาติดต่อเจ้าหน้าที่"
   },
   "Maintenance": {
     "title": "อุปกรณ์อยู่ระหว่างปิดปรับปรุง",
-    "description": "กรุณาติดต่อผู้ดูแลระบบ"
+    "description": "กรุณาติดต่อผู้ดูแลระบบ",
+    "inactiveDescription": "อุปกรณ์นี้ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+    "ipNotAllowedDescription": "อุปกรณ์นี้ไม่ได้รับอนุญาตให้ใช้งานจากเครือข่ายนี้ กรุณาติดต่อผู้ดูแลระบบ"
   },
   "PlateNotFoundPopup": {
     "topText": "ลองอีกครั้ง",
@@ -229,5 +249,19 @@
     "loadedSuccess": "โหลดสำเร็จ",
     "loadFailed": "โหลดข้อมูลไม่สำเร็จ",
     "loadingFromApi": "กำลังโหลดข้อมูลจาก API"
+  },
+  "EdcPopup": {
+    "title": "ชำระด้วยบัตร",
+    "instruction": "กรุณาเสียบ แตะ หรือรูดบัตรที่เครื่อง EDC",
+    "terminal": "เครื่อง {name} (TID {terminalId})",
+    "waitingCard": "กำลังรอผลจากเครื่อง EDC...",
+    "saving": "กำลังบันทึกการชำระเงิน...",
+    "start": "เริ่มชำระด้วยบัตร",
+    "retrySave": "ส่งบันทึกอีกครั้ง",
+    "notConfigured": "ตู้นี้ยังไม่ได้ผูกเครื่อง EDC",
+    "notConnected": "ยังไม่ได้เชื่อมต่อเครื่อง EDC กรุณาเลือกวิธีชำระอื่น",
+    "cardFailed": "เครื่อง EDC ไม่อนุมัติรายการ กรุณาลองใหม่",
+    "saveNetworkFailed": "บันทึกการชำระไม่สำเร็จเพราะเชื่อมต่อระบบไม่ได้ กรุณากดส่งบันทึกอีกครั้ง (เลขอนุมัติ {reference})",
+    "voidRequired": "บันทึกการชำระไม่สำเร็จ ({message}) กรุณาติดต่อเจ้าหน้าที่เพื่อยกเลิกรายการที่เครื่อง EDC (เลขอนุมัติ {reference})"
   }
 }

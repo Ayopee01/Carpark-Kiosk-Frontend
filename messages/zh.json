@@ -103,7 +103,15 @@
     "statusPaidWaitingExit": "已付款，等待离场",
     "statusCompleted": "已完成",
     "statusCancelled": "已取消",
-    "fastSecure": "快速且安全"
+    "fastSecure": "快速且安全",
+    "methodsLoading": "正在加载付款方式...",
+    "methodsEmpty": "当前没有可用的付款方式，请联系工作人员。",
+    "methodsLoadFailed": "无法加载付款方式",
+    "cardDescription": "在 EDC 终端刷卡支付",
+    "promptPayDescription": "扫描二维码付款",
+    "devTestTitle": "Dev Test：模拟付款",
+    "devTestFailed": "模拟付款失败：{message}",
+    "errorAlreadyProcessed": "此订单已处理"
   },
   "PaymentPopup": {
     "title": "支付",
@@ -116,10 +124,15 @@
     "returningHome": "正在返回首页...",
     "creatingQr": "正在创建支付二维码...",
     "waitingVerification": "正在等待付款验证",
-    "minimumAmountCashier": "未达到最低金额，请通过收银台付款",
     "paymentFailed": "无法处理付款，请重试",
     "qrUnavailable": "未收到支付二维码",
-    "qrAlt": "付款二维码"
+    "qrAlt": "付款二维码",
+    "amountBelowMinimum": "PromptPay 最低金额为 {minimumAmount} 泰铢（待付 {remainingAmount} 泰铢），请选择其他付款方式。",
+    "noRemainingAmount": "此订单已无需付款。",
+    "paymentExpired": "二维码已过期，请重新生成。",
+    "paymentReversed": "付款已被撤销，请联系工作人员。",
+    "paymentNotApplied": "已收到付款但无法入账，请联系工作人员。",
+    "retry": "重新生成二维码"
   },
   "Activate": {
     "title": "Smart Carpark",
@@ -136,7 +149,9 @@
     "errorUnexpected": "发生错误，请重试",
     "successFallback": "激活成功",
     "redirectingDashboard": "{message} 正在进入 Dashboard...",
-    "redirectingBarrier": "{message} 正在进入 Barrier Gate..."
+    "redirectingBarrier": "{message} 正在进入 Barrier Gate...",
+    "errorInvalidCode": "激活码无效或已过期",
+    "errorTooManyRequests": "尝试次数过多，请稍后再试。"
   },
   "BarrierGate": {
     "checkPaymentTitle": "道闸付款",
@@ -190,11 +205,16 @@
     "denyUnpaid": "仍有未付款项，请在自助机付款",
     "denyProcessed": "此交易已处理或已取消",
     "opened": "道闸已成功打开",
-    "offline": "设备无法连接到系统"
+    "offline": "设备无法连接到系统",
+    "paymentSuccessWaitLpr": "付款成功，请等待车牌识别后开闸。",
+    "goToPayment": "正在前往付款...",
+    "actionUnknown": "无法处理，请联系工作人员。"
   },
   "Maintenance": {
     "title": "设备维护中",
-    "description": "请联系管理员"
+    "description": "请联系管理员",
+    "inactiveDescription": "此设备已停用，请联系管理员。",
+    "ipNotAllowedDescription": "此设备不允许在当前网络使用，请联系管理员。"
   },
   "PlateNotFoundPopup": {
     "topText": "再试一次",
@@ -229,5 +249,19 @@
     "loadedSuccess": "加载成功",
     "loadFailed": "加载失败",
     "loadingFromApi": "正在从 API 加载数据"
+  },
+  "EdcPopup": {
+    "title": "刷卡支付",
+    "instruction": "请在 EDC 终端插卡、拍卡或刷卡",
+    "terminal": "终端 {name}（TID {terminalId}）",
+    "waitingCard": "正在等待 EDC 终端结果...",
+    "saving": "正在记录付款...",
+    "start": "开始刷卡支付",
+    "retrySave": "重新发送",
+    "notConfigured": "此设备未绑定 EDC 终端",
+    "notConnected": "EDC 终端未连接，请选择其他付款方式。",
+    "cardFailed": "银行卡未获批准，请重试。",
+    "saveNetworkFailed": "无法连接系统，付款未记录，请重新发送（授权码 {reference}）。",
+    "voidRequired": "付款无法记录（{message}），请联系工作人员在 EDC 终端撤销交易（授权码 {reference}）。"
   }
 }

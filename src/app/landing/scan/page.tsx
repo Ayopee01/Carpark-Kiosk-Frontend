@@ -1,73 +1,30 @@
 "use client";
 
-// Import Libraries
-import { useCallback, useEffect, useRef, useState } from "react";
+// Import Library
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+// Import Components
+import BackBtn from "@/src/app/components/back-btn";
+import PlateNotFoundPopup from "@/src/app/components/plate-not-found-popup";
+// Import Lib
+import { MIN_PLATE_NO_LENGTH, normalizePlateNo } from "@/src/app/lib/plate";
+import { lookupPlate } from "@/src/app/lib/transaction-lookup";
+// Import Types
+import type { ClientTransaction } from "@/src/app/type/api.type";
+// Import CSS
+import "@/src/app/css/scan.css";
 
-// Components
-import BackBtn from "@/src/app/components/BackBtn";
-import PlateNotFoundPopup from "@/src/app/components/PlateNotFoundPopup";
+/* -------------------------------------- Helpers -------------------------------------- */
 
-// Libs
-import {
-    getDeviceAuthHeaders,
-    getDeviceId,
-    handleDeviceResponseStatus,
-} from "@/src/app/lib/device";
-import { normalizePlateNo } from "@/src/app/lib/plate";
-import { isAlreadyProcessedTransactionError } from "@/src/app/lib/transactionStatus";
-import { savePlateTransactionResult } from "@/src/app/lib/transactionStorage";
-
-// Types
-import type { ClientTransactionResponse } from "@/src/app/type/client";
-
-// CSS
-import "@/src/app/css/Scan.css";
-
-// ------------------------------- Config -------------------------------
-
-const SEARCH_API_PATH = "/api/client/transaction";
-
-function hasNoPaymentRequired(transaction: ClientTransactionResponse) {
-    return (transaction.amount?.remainingAmount ?? 0) <= 0;
+// Function ตรวจว่าไม่มียอดต้องจ่าย (ใช้ remainingAmount จาก Backend เสมอ)
+function hasNoPaymentRequired(transaction: ClientTransaction): boolean {
+    return transaction.amount.remainingAmount <= 0;
 }
 
-// ------------------------------- Function -------------------------------
-
-// Function สำหรับค้นหาทะเบียนที่ได้จากการ Scan
-async function fetchKioskSearch(plateNo: string) {
-    const deviceId = getDeviceId("kiosk")?.trim() ?? "";
-    const searchParams = new URLSearchParams({
-        plateNo,
-        deviceId,
-    });
-
-    const response = await fetch(`${SEARCH_API_PATH}?${searchParams.toString()}`, {
-        method: "GET",
-        headers: getDeviceAuthHeaders("kiosk"),
-        cache: "no-store",
-    });
-
-    const result = (await response.json().catch(() => null)) as
-        | ClientTransactionResponse
-        | { message?: string; status?: string }
-        | null;
-
-    const wasRedirected = handleDeviceResponseStatus(
-        response,
-        result as { message?: string; status?: string } | null
-    );
-
-    return {
-        status: response.status,
-        result,
-        wasRedirected,
-    };
-}
-
-function safeDecodeURIComponent(value: string) {
+// Function decode URI component (decode ไม่ได้คืนค่าเดิม)
+function safeDecodeURIComponent(value: string): string {
     try {
         return decodeURIComponent(value);
     } catch {
@@ -75,38 +32,32 @@ function safeDecodeURIComponent(value: string) {
     }
 }
 
-function extractPlateFromScanValue(value: string) {
+// Function ดึงทะเบียนจากค่าที่สแกนได้ (รองรับ URL ที่มี plate / plateNo / plate_no หรือทะเบียนตรง ๆ)
+function extractPlateFromScanValue(value: string): string {
     const trimmedValue = value.trim();
-
     if (!trimmedValue) return "";
 
     const decodedValue = safeDecodeURIComponent(trimmedValue).trim();
 
     try {
         const url = new URL(decodedValue, window.location.origin);
+        const plateFromUrl = url.searchParams.get("plate") || url.searchParams.get("plateNo") || url.searchParams.get("plate_no");
 
-        const plateFromUrl =
-            url.searchParams.get("plate") ||
-            url.searchParams.get("plateNo") ||
-            url.searchParams.get("plate_no");
-
-        if (plateFromUrl) {
-            return safeDecodeURIComponent(plateFromUrl).trim();
-        }
+        if (plateFromUrl) return safeDecodeURIComponent(plateFromUrl).trim();
     } catch {
-        // ถ้าไม่ใช่ URL จะไปใช้เงื่อนไขด้านล่างแทน
+        // ไม่ใช่ URL ให้ลองหา query ด้วย regex ด้านล่าง
     }
 
     const plateMatch = decodedValue.match(/[?&](plate|plateNo|plate_no)=([^&]+)/);
-
-    if (plateMatch?.[2]) {
-        return safeDecodeURIComponent(plateMatch[2]).trim();
-    }
+    if (plateMatch?.[2]) return safeDecodeURIComponent(plateMatch[2]).trim();
 
     return decodedValue;
 }
 
-function ScanPage() {
+/* -------------------------------------- Functions -------------------------------------- */
+
+// Function แสดงหน้าสแกน รับค่าจากเครื่องสแกน (keyboard input / paste) แล้วค้นหาทะเบียน
+function ScanPage(): ReactElement {
     const router = useRouter();
     const t = useTranslations("Scan");
 
@@ -120,13 +71,13 @@ function ScanPage() {
     const bufferRef = useRef("");
     const loadingRef = useRef(false);
 
-    const resetScanBuffer = useCallback(() => {
+    const resetScanBuffer = useCallback((): void => {
         bufferRef.current = "";
         setScannedPlate("");
     }, []);
 
     const handleSearch = useCallback(
-        async (scanValue: string) => {
+        async (scanValue: string): Promise<void> => {
             const trimmedPlate = normalizePlateNo(extractPlateFromScanValue(scanValue));
 
             if (!trimmedPlate || loadingRef.current) return;
@@ -139,49 +90,44 @@ function ScanPage() {
                 setIsSuccessValidation(false);
                 setScannedPlate(trimmedPlate);
 
-                const { status, result, wasRedirected } = await fetchKioskSearch(trimmedPlate);
+                const outcome = await lookupPlate(trimmedPlate);
 
-                if (wasRedirected) return;
+                switch (outcome.kind) {
+                    case "redirected":
+                        return;
+                    case "not_found":
+                        setShowNotFoundPopup(true);
+                        resetScanBuffer();
+                        return;
+                    case "invalid_plate":
+                        setError(t("errorPlateTooShort", { min: MIN_PLATE_NO_LENGTH }));
+                        resetScanBuffer();
+                        return;
+                    case "already_processed":
+                        setIsAlreadyProcessedError(true);
+                        setError(t("errorAlreadyProcessed"));
+                        resetScanBuffer();
+                        return;
+                    case "error":
+                        console.error("Scan search failed:", outcome.error);
+                        setError(t("errorSearchFailed"));
+                        resetScanBuffer();
+                        return;
+                    case "multiple":
+                        // ทะเบียนตรงหลายคัน: ให้เลือกที่หน้า Detail แล้วค้นใหม่ด้วยทะเบียนเต็ม
+                        router.push(`/landing/detail?plateNo=${encodeURIComponent(trimmedPlate)}`);
+                        return;
+                    case "found":
+                        if (hasNoPaymentRequired(outcome.transaction)) {
+                            setIsSuccessValidation(true);
+                            setError(t("noPaymentRequired"));
+                            resetScanBuffer();
+                            return;
+                        }
 
-                if (status === 404) {
-                    setShowNotFoundPopup(true);
-                    resetScanBuffer();
-                    return;
+                        router.push(`/landing/detail?plateNo=${encodeURIComponent(outcome.transaction.plateNo)}`);
+                        return;
                 }
-
-                if (status >= 400) {
-                    const isAlreadyProcessed = isAlreadyProcessedTransactionError(status, result);
-
-                    setIsAlreadyProcessedError(isAlreadyProcessed);
-                    setError(
-                        isAlreadyProcessed
-                            ? t("errorAlreadyProcessed")
-                            : t("errorSearchFailed")
-                    );
-                    resetScanBuffer();
-                    return;
-                }
-
-                if (!result) {
-                    setError(t("errorInvalidData"));
-                    resetScanBuffer();
-                    return;
-                }
-
-                const transaction = result as ClientTransactionResponse;
-
-                savePlateTransactionResult(trimmedPlate, transaction);
-
-                if (hasNoPaymentRequired(transaction)) {
-                    setIsSuccessValidation(true);
-                    setError(t("noPaymentRequired"));
-                    resetScanBuffer();
-                    return;
-                }
-
-                router.push(
-                    `/landing/detail?plateNo=${encodeURIComponent(trimmedPlate)}`
-                );
             } catch (err) {
                 console.error("Unexpected scan search error:", err);
                 setError(t("errorUnexpected"));
@@ -194,8 +140,9 @@ function ScanPage() {
         [resetScanBuffer, router, t]
     );
 
+    // เครื่องสแกนส่งค่าเป็นการกดแป้นทีละตัวแล้วปิดด้วย Enter/Tab หรือ paste ทั้งก้อน
     useEffect(() => {
-        const handleBarcodeInput = (event: KeyboardEvent) => {
+        const handleBarcodeInput = (event: KeyboardEvent): void => {
             if (loadingRef.current) return;
             if (event.ctrlKey || event.metaKey || event.altKey) return;
 
@@ -203,7 +150,6 @@ function ScanPage() {
                 event.preventDefault();
 
                 const value = bufferRef.current.trim();
-
                 if (!value) return;
 
                 bufferRef.current = "";
@@ -213,7 +159,6 @@ function ScanPage() {
 
             if (event.key === "Backspace") {
                 event.preventDefault();
-
                 bufferRef.current = bufferRef.current.slice(0, -1);
                 setScannedPlate(bufferRef.current);
                 return;
@@ -221,7 +166,6 @@ function ScanPage() {
 
             if (event.key.length === 1) {
                 event.preventDefault();
-
                 bufferRef.current += event.key;
                 setScannedPlate(bufferRef.current);
                 setError("");
@@ -230,15 +174,13 @@ function ScanPage() {
             }
         };
 
-        const handlePaste = (event: ClipboardEvent) => {
+        const handlePaste = (event: ClipboardEvent): void => {
             if (loadingRef.current) return;
 
             const pastedValue = event.clipboardData?.getData("text") ?? "";
-
             if (!pastedValue.trim()) return;
 
             event.preventDefault();
-
             bufferRef.current = "";
 
             const plate = extractPlateFromScanValue(pastedValue);
@@ -272,13 +214,7 @@ function ScanPage() {
                     <div className="scan-page__icon">
                         <div className="scan-page__divider" />
 
-                        <Image
-                            src="/icon/Scanner_Viewfinder.png"
-                            alt={t("viewfinderAlt")}
-                            className="scan-page__viewfinder"
-                            width={384}
-                            height={338}
-                        />
+                        <Image src="/icon/Scanner_Viewfinder.png" alt={t("viewfinderAlt")} className="scan-page__viewfinder" width={384} height={338} />
                     </div>
 
                     <div className="scan-page__hint">
@@ -287,24 +223,14 @@ function ScanPage() {
                     </div>
 
                     <div className="scan-page__result">
-                        <p className="scan-page__result-label">
-                            {t("resultLabel")}
-                        </p>
+                        <p className="scan-page__result-label">{t("resultLabel")}</p>
 
-                        <strong className="scan-page__result-value">
-                            {scannedPlate || t("waitingInput")}
-                        </strong>
+                        <strong className="scan-page__result-value">{scannedPlate || t("waitingInput")}</strong>
 
-                        {loading ? (
-                            <p className="scan-page__status">
-                                {t("searching")}
-                            </p>
-                        ) : null}
+                        {loading ? <p className="scan-page__status">{t("searching")}</p> : null}
 
                         {error ? (
-                            <p
-                                className={`scan-page__error ${isAlreadyProcessedError || isSuccessValidation ? "scan-page__error--processed" : ""}`}
-                            >
+                            <p className={`scan-page__error ${isAlreadyProcessedError || isSuccessValidation ? "scan-page__error--processed" : ""}`}>
                                 {error}
                             </p>
                         ) : null}
@@ -312,11 +238,7 @@ function ScanPage() {
                 </div>
             </section>
 
-            <PlateNotFoundPopup
-                open={showNotFoundPopup}
-                onClose={() => setShowNotFoundPopup(false)}
-                onRetry={() => setShowNotFoundPopup(false)}
-            />
+            <PlateNotFoundPopup open={showNotFoundPopup} onClose={() => setShowNotFoundPopup(false)} onRetry={() => setShowNotFoundPopup(false)} />
         </>
     );
 }

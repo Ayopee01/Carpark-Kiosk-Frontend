@@ -103,7 +103,15 @@
     "statusPaidWaitingExit": "Paid, waiting for exit",
     "statusCompleted": "Completed",
     "statusCancelled": "Cancelled",
-    "fastSecure": "FAST & SECURE"
+    "fastSecure": "FAST & SECURE",
+    "methodsLoading": "Loading payment methods...",
+    "methodsEmpty": "No payment method is available right now. Please contact staff.",
+    "methodsLoadFailed": "Unable to load payment methods",
+    "cardDescription": "Pay by card at the EDC terminal",
+    "promptPayDescription": "Scan the QR code to pay",
+    "devTestTitle": "Dev Test: simulate payment",
+    "devTestFailed": "Payment simulation failed: {message}",
+    "errorAlreadyProcessed": "This ticket has already been processed"
   },
   "PaymentPopup": {
     "title": "Payment",
@@ -116,10 +124,15 @@
     "returningHome": "Returning to home...",
     "creatingQr": "Creating payment QR code...",
     "waitingVerification": "Waiting for payment verification",
-    "minimumAmountCashier": "Minimum amount not reached. Please pay through the Cashier.",
     "paymentFailed": "Unable to process payment. Please try again",
     "qrUnavailable": "Payment QR code is not available",
-    "qrAlt": "Payment QR code"
+    "qrAlt": "Payment QR code",
+    "amountBelowMinimum": "PromptPay requires at least {minimumAmount} THB (outstanding {remainingAmount} THB). Please choose another payment method.",
+    "noRemainingAmount": "There is nothing left to pay for this ticket.",
+    "paymentExpired": "The QR code has expired. Please create a new QR code.",
+    "paymentReversed": "The payment was reversed. Please contact staff.",
+    "paymentNotApplied": "Payment was received but could not be applied. Please contact staff.",
+    "retry": "Create new QR"
   },
   "Activate": {
     "title": "Smart Carpark",
@@ -136,7 +149,9 @@
     "errorUnexpected": "An error occurred. Please try again",
     "successFallback": "Activation successful",
     "redirectingDashboard": "{message} Redirecting to Dashboard...",
-    "redirectingBarrier": "{message} Redirecting to Barrier Gate..."
+    "redirectingBarrier": "{message} Redirecting to Barrier Gate...",
+    "errorInvalidCode": "The activation code is invalid or expired",
+    "errorTooManyRequests": "Too many attempts. Please wait a moment and try again."
   },
   "BarrierGate": {
     "title": "Barrier Gate",
@@ -190,11 +205,16 @@
     "denyUnpaid": "Payment is still required. Please pay at the kiosk",
     "denyProcessed": "This transaction has already been processed or cancelled",
     "opened": "Gate opened successfully",
-    "offline": "Device cannot connect to the system"
+    "offline": "Device cannot connect to the system",
+    "paymentSuccessWaitLpr": "Payment successful. Please wait for the plate check to open the gate.",
+    "goToPayment": "Opening payment...",
+    "actionUnknown": "Unable to proceed. Please contact staff."
   },
   "Maintenance": {
     "title": "Device is under maintenance",
-    "description": "Please contact the administrator"
+    "description": "Please contact the administrator",
+    "inactiveDescription": "This device has been deactivated. Please contact the administrator.",
+    "ipNotAllowedDescription": "This device is not allowed on this network. Please contact the administrator."
   },
   "PlateNotFoundPopup": {
     "topText": "Try again",
@@ -229,5 +249,19 @@
     "loadedSuccess": "Loaded successfully",
     "loadFailed": "Failed to load data",
     "loadingFromApi": "Loading data from API"
+  },
+  "EdcPopup": {
+    "title": "Pay by card",
+    "instruction": "Please insert, tap, or swipe your card at the EDC terminal",
+    "terminal": "Terminal {name} (TID {terminalId})",
+    "waitingCard": "Waiting for the EDC terminal...",
+    "saving": "Recording payment...",
+    "start": "Start card payment",
+    "retrySave": "Send again",
+    "notConfigured": "This device has no EDC terminal assigned",
+    "notConnected": "The EDC terminal is not connected. Please choose another payment method.",
+    "cardFailed": "The card was not approved. Please try again.",
+    "saveNetworkFailed": "Could not record the payment because the system is unreachable. Please send again (approval code {reference}).",
+    "voidRequired": "The payment could not be recorded ({message}). Please ask staff to void the transaction on the EDC terminal (approval code {reference})."
   }
 }

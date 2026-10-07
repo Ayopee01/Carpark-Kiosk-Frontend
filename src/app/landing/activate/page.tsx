@@ -1,72 +1,48 @@
 "use client";
 
-// Import Libraries
-import { useCallback, useEffect, useMemo, useState } from "react";
+// Import Library
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-
-// Libs
-import { saveDeviceCredential } from "@/src/app/lib/device";
+// Import Lib
+import { activateDevice, getClientConfig, hasErrorCode } from "@/src/app/lib/api/client-api";
+import { normalizeBarrierDirection, saveDeviceCredential } from "@/src/app/lib/device";
 import { sendHeartbeat } from "@/src/app/lib/heartbeat";
-import {
-    applyKioskThemeToRoot,
-    normalizeKioskTheme,
-    saveKioskThemeToStorage,
-} from "@/src/app/lib/kioskTheme";
-import { KIOSK_CONFIG_UPDATED_EVENT } from "@/src/app/lib/storageKeys";
-
-// Types
-import type { KioskConfigResponse } from "@/src/app/lib/kioskTheme";
-import type { DeviceActivateResponse } from "@/src/app/type/client";
-
-// CSS
-import "@/src/app/css/KioskActivate.css";
-
-// Icons
+import { applyKioskThemeToRoot, normalizeKioskTheme, saveKioskThemeToStorage } from "@/src/app/lib/kiosk-theme";
+import { KIOSK_CONFIG_UPDATED_EVENT } from "@/src/app/lib/storage-keys";
+// Import Types
+import type { ActivateResponse } from "@/src/app/type/api.type";
+import type { KioskConfigResponse } from "@/src/app/type/theme.type";
+// Import CSS
+import "@/src/app/css/kiosk-activate.css";
+// Import Icons
 import { LuCheck, LuDelete, LuLoader, LuMonitor, LuX } from "react-icons/lu";
 
-// ------------------------------- Config -------------------------------
+/* -------------------------------------- Config -------------------------------------- */
 
-// กำหนดจำนวนหลักของ Activation Code
+// Config จำนวนหลักของ activation code
 const MAX_CODE_LENGTH = 6;
+// Config ปุ่มของคีย์บอร์ดตัวเลขบนหน้าจอ
+const NUMERIC_KEYBOARD_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "delete", "0", "enter"] as const;
+// Config เวลาที่แสดงข้อความสำเร็จก่อนเข้าหน้าของอุปกรณ์
+const REDIRECT_DELAY_MS = 800;
 
-// กำหนดปุ่มตัวเลขสำหรับคีย์บอร์ดบนหน้าจอ
-const numericKeyboardKeys = [
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "delete",
-    "0",
-    "enter",
-] as const;
+/* -------------------------------------- Helpers -------------------------------------- */
 
-// ------------------------------- Function -------------------------------
-
-// Function สำหรับบันทึก config/theme หลัง Activate สำเร็จ เพื่อให้หน้าอื่นนำไปใช้ต่อทันที
-function saveKioskConfigToLocalStorage(config: KioskConfigResponse) {
+// Function บันทึก theme หลัง Activate แล้วแจ้ง Provider ให้ใช้ config นี้และเปิด SSE ใหม่
+function saveKioskConfigToLocalStorage(config: KioskConfigResponse): void {
     const nextTheme = normalizeKioskTheme(config.theme);
-
-    if (!nextTheme) {
-        throw new Error("invalid_theme");
-    }
+    if (!nextTheme) throw new Error("invalid_theme");
 
     saveKioskThemeToStorage(nextTheme);
     applyKioskThemeToRoot(nextTheme);
-
-    window.dispatchEvent(
-        new CustomEvent<KioskConfigResponse>(KIOSK_CONFIG_UPDATED_EVENT, {
-            detail: config,
-        })
-    );
+    window.dispatchEvent(new CustomEvent<KioskConfigResponse>(KIOSK_CONFIG_UPDATED_EVENT, { detail: config }));
 }
 
-function KioskActivatePage() {
+/* -------------------------------------- Functions -------------------------------------- */
+
+// Function แสดงหน้ากรอก activation code แล้วบันทึก credential และพาไปหน้าตาม deviceType
+function KioskActivatePage(): ReactElement {
     const router = useRouter();
     const t = useTranslations("Activate");
     const common = useTranslations("Common");
@@ -75,48 +51,34 @@ function KioskActivatePage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
-    const [successTarget, setSuccessTarget] =
-        useState<"dashboard" | "barrier">("dashboard");
+    const [successTarget, setSuccessTarget] = useState<"dashboard" | "barrier">("dashboard");
 
     const isLocked = submitting || Boolean(successMessage);
+    const canSubmit = useMemo(() => code.trim().length === MAX_CODE_LENGTH && !isLocked, [code, isLocked]);
 
-    // ตรวจว่า code ครบจำนวนหลักและหน้ายังไม่ถูกล็อกอยู่หรือไม่
-    const canSubmit = useMemo(
-        () => code.trim().length === MAX_CODE_LENGTH && !isLocked,
-        [code, isLocked]
-    );
-
-    // Function สำหรับล้างข้อความ error/success เมื่อผู้ใช้เริ่มกรอกใหม่
-    const clearMessage = useCallback(() => {
+    const clearMessage = useCallback((): void => {
         setError("");
         setSuccessMessage("");
     }, []);
 
-    // Function สำหรับเพิ่มตัวเลขจากคีย์บอร์ดบนหน้าจอ
     const handleNumberClick = useCallback(
-        (value: string) => {
+        (value: string): void => {
             if (isLocked) return;
 
-            setCode((prev) => {
-                if (prev.length >= MAX_CODE_LENGTH) return prev;
-                return `${prev}${value}`;
-            });
-
+            setCode((prev) => (prev.length >= MAX_CODE_LENGTH ? prev : `${prev}${value}`));
             clearMessage();
         },
         [clearMessage, isLocked]
     );
 
-    // Function สำหรับลบตัวเลขล่าสุด
-    const handleDelete = useCallback(() => {
+    const handleDelete = useCallback((): void => {
         if (isLocked) return;
 
         setCode((prev) => prev.slice(0, -1));
         clearMessage();
     }, [clearMessage, isLocked]);
 
-    // Function สำหรับส่ง Activation Code ไปให้ Backend และบันทึก credential ของอุปกรณ์
-    const handleConfirm = useCallback(async () => {
+    const handleConfirm = useCallback(async (): Promise<void> => {
         if (isLocked) return;
 
         const activationCode = code.trim();
@@ -137,26 +99,21 @@ function KioskActivatePage() {
             setSuccessMessage("");
             setSuccessTarget("dashboard");
 
-            const response = await fetch("/api/client/activate", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    code: activationCode,
-                }),
-                cache: "no-store",
-            });
+            let result: ActivateResponse;
 
-            const result = (await response.json().catch(() => null)) as
-                | DeviceActivateResponse
-                | null;
-
-            if (!response.ok || !result?.success) {
-                throw new Error(t("errorActivateFailed"));
+            try {
+                result = await activateDevice({ code: activationCode });
+            } catch (activateError) {
+                throw new Error(
+                    hasErrorCode(activateError, "INVALID_ACTIVATION_CODE", "ACTIVATION_CODE_REQUIRED")
+                        ? t("errorInvalidCode")
+                        : hasErrorCode(activateError, "TOO_MANY_REQUESTS")
+                            ? t("errorTooManyRequests")
+                            : t("errorActivateFailed")
+                );
             }
 
-            // บันทึก device credential เพื่อใช้กับ check-in, heartbeat และ API ที่ต้องยืนยันตัวตน
+            // deviceToken แสดงครั้งเดียว ต้องเก็บไว้ในเครื่องทันที
             saveDeviceCredential({
                 deviceId: result.deviceId,
                 deviceToken: result.deviceToken,
@@ -166,36 +123,16 @@ function KioskActivatePage() {
                 status: result.status,
                 activatedAt: new Date().toISOString(),
                 gateId: result.gateId ?? null,
-                cameraId: result.cameraId ?? null,
-                direction: result.direction ?? null,
+                direction: normalizeBarrierDirection(result.direction),
+                cameraIds: result.cameraIds ?? [],
+                printerIds: result.printerIds ?? [],
             });
 
-            // ถ้าเป็น Barrier Gate ให้ heartbeat และ redirect ไปหน้า Barrier Gate
-            if (result.deviceType === "barrier_gate") {
-                await sendHeartbeat("barrier-gate").catch((err) => {
-                    console.warn("barrier-gate heartbeat after activation failed:", err);
-                });
+            let kioskConfig: KioskConfigResponse;
 
-                setSuccessTarget("barrier");
-                setSuccessMessage(result.message || t("successFallback"));
-
-                setTimeout(() => {
-                    router.replace("/landing/barrier-gate");
-                }, 800);
-                return;
-            }
-
-            // ถ้าเป็น Kiosk ให้โหลด config/theme ล่าสุดก่อนเข้า dashboard
-            const configResponse = await fetch("/api/devices/config", {
-                method: "GET",
-                cache: "no-store",
-            });
-
-            const kioskConfig = (await configResponse.json().catch(
-                () => null
-            )) as KioskConfigResponse | null;
-
-            if (!configResponse.ok || !kioskConfig?.theme) {
+            try {
+                kioskConfig = await getClientConfig();
+            } catch {
                 throw new Error(t("errorConfigFailed"));
             }
 
@@ -205,19 +142,24 @@ function KioskActivatePage() {
                 throw new Error(t("errorThemeInvalid"));
             }
 
-            await sendHeartbeat("kiosk").catch((err) => {
-                console.warn("kiosk heartbeat after activation failed:", err);
+            await sendHeartbeat().catch((err) => {
+                console.warn("Heartbeat after activation failed:", err);
             });
 
+            const isBarrierGate = result.deviceType === "barrier_gate";
+
+            setSuccessTarget(isBarrierGate ? "barrier" : "dashboard");
             setSuccessMessage(result.message || t("successFallback"));
 
             setTimeout(() => {
-                router.replace("/landing/dashboard");
-            }, 800);
+                router.replace(isBarrierGate ? "/landing/barrier-gate" : "/landing/dashboard");
+            }, REDIRECT_DELAY_MS);
         } catch (err) {
-            // แสดงข้อความ error ที่รองรับการแปลภาษา ถ้าไม่รู้จักให้ใช้ข้อความกลาง
+            // แสดงเฉพาะข้อความที่แปลภาษาไว้ ข้อความอื่นใช้ข้อความกลาง
             const localizedErrors = new Set([
                 t("errorActivateFailed"),
+                t("errorInvalidCode"),
+                t("errorTooManyRequests"),
                 t("errorConfigFailed"),
                 t("errorThemeInvalid"),
             ]);
@@ -231,7 +173,7 @@ function KioskActivatePage() {
 
     // รองรับการกรอกผ่าน physical keyboard นอกจากปุ่มบนหน้าจอ
     useEffect(() => {
-        const handlePhysicalKeyboard = (event: KeyboardEvent) => {
+        const handlePhysicalKeyboard = (event: KeyboardEvent): void => {
             if (isLocked) return;
 
             if (/^\d$/.test(event.key)) {
@@ -253,10 +195,7 @@ function KioskActivatePage() {
         };
 
         window.addEventListener("keydown", handlePhysicalKeyboard);
-
-        return () => {
-            window.removeEventListener("keydown", handlePhysicalKeyboard);
-        };
+        return () => window.removeEventListener("keydown", handlePhysicalKeyboard);
     }, [handleNumberClick, handleDelete, handleConfirm, isLocked]);
 
     return (
@@ -274,9 +213,7 @@ function KioskActivatePage() {
 
                     <div className="kiosk-activate__form-area">
                         <div className="kiosk-code-card">
-                            <label className="kiosk-code-card__label">
-                                {t("codeLabel")}
-                            </label>
+                            <label className="kiosk-code-card__label">{t("codeLabel")}</label>
 
                             <div className="kiosk-code-card__input-box">
                                 <input
@@ -284,35 +221,20 @@ function KioskActivatePage() {
                                     placeholder="000000"
                                     readOnly
                                     aria-label={t("codeLabel")}
-                                    className={`kiosk-code-card__input ${code ? "is-filled" : ""
-                                        }`}
+                                    className={`kiosk-code-card__input ${code ? "is-filled" : ""}`}
                                 />
                             </div>
                         </div>
 
-                        <p
-                            className={
-                                error
-                                    ? "kiosk-activate__message kiosk-activate__message--error"
-                                    : "kiosk-activate__message"
-                            }
-                        >
-                            {error ||
-                                t("hint")}
+                        <p className={error ? "kiosk-activate__message kiosk-activate__message--error" : "kiosk-activate__message"}>
+                            {error || t("hint")}
                         </p>
 
                         {successMessage ? (
                             <div className="kiosk-alert kiosk-alert--success">
                                 <LuCheck size={18} />
                                 <span>
-                                    {t(
-                                        successTarget === "barrier"
-                                            ? "redirectingBarrier"
-                                            : "redirectingDashboard",
-                                        {
-                                        message: successMessage,
-                                        }
-                                    )}
+                                    {t(successTarget === "barrier" ? "redirectingBarrier" : "redirectingDashboard", { message: successMessage })}
                                 </span>
                             </div>
                         ) : null}
@@ -326,7 +248,7 @@ function KioskActivatePage() {
                     </div>
 
                     <div className="kiosk-keyboard" aria-label="Numeric Keyboard">
-                        {numericKeyboardKeys.map((key) => {
+                        {NUMERIC_KEYBOARD_KEYS.map((key) => {
                             if (key === "delete") {
                                 return (
                                     <button
@@ -351,14 +273,7 @@ function KioskActivatePage() {
                                         onClick={() => void handleConfirm()}
                                         disabled={!canSubmit}
                                     >
-                                        {submitting ? (
-                                            <LuLoader
-                                                className="kiosk-keyboard__loader"
-                                                size={22}
-                                            />
-                                        ) : (
-                                            common("enter")
-                                        )}
+                                        {submitting ? <LuLoader className="kiosk-keyboard__loader" size={22} /> : common("enter")}
                                     </button>
                                 );
                             }
@@ -369,9 +284,7 @@ function KioskActivatePage() {
                                     type="button"
                                     className="kiosk-keyboard__key"
                                     onClick={() => handleNumberClick(key)}
-                                    disabled={
-                                        isLocked || code.length >= MAX_CODE_LENGTH
-                                    }
+                                    disabled={isLocked || code.length >= MAX_CODE_LENGTH}
                                 >
                                     {key}
                                 </button>
@@ -379,9 +292,7 @@ function KioskActivatePage() {
                         })}
                     </div>
 
-                    <p className="kiosk-activate__footer">
-                        {t("footer")}
-                    </p>
+                    <p className="kiosk-activate__footer">{t("footer")}</p>
                 </section>
             </div>
         </main>

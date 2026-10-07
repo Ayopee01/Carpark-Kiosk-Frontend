@@ -1,42 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+// Import Library
+import type { NextRequest, NextResponse } from "next/server";
+// Import Lib
+import { proxyErrorResponse, proxyJsonRequest, readJsonObject } from "../backend";
 
-// API Route สำหรับ Activate Device
-export async function POST(request: NextRequest) {
-    try {
-        const baseUrl = process.env.BASE_URL ?? "";
+/* -------------------------------------- Config -------------------------------------- */
 
-        if (!baseUrl) {
-            return NextResponse.json(
-                { success: false, message: "API base URL is not configured" },
-                { status: 500 }
-            );
-        }
+// Config ให้ route ทำงานทุก request (Next.js ต้องการ export const ของ segment config)
+export const dynamic = "force-dynamic";
 
-        const body = await request.json();
+/* -------------------------------------- Routes -------------------------------------- */
 
-        // Request API สำหรับ Activate Device
-        const response = await fetch(`${baseUrl}/api/v1/client/activate`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                code: body.code ?? "",
-            }),
-            cache: "no-store",
-        });
+// Route เปิดใช้งานอุปกรณ์ด้วย activation code (POST /api/client/activate)
+async function POST(request: NextRequest): Promise<NextResponse> {
+    const baseUrl = process.env.BASE_URL ?? "";
+    const body = await readJsonObject(request);
 
-        return NextResponse.json(await response.json().catch(() => null), {
-            status: response.status,
-        });
-    } catch (error) {
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Failed to activate device",
-                error: error instanceof Error ? error.message : "Unknown error",
-            },
-            { status: 500 }
-        );
+    if (!body) {
+        return proxyErrorResponse(400, "VALIDATION_ERROR", "Invalid activation payload");
     }
+
+    return proxyJsonRequest(request, baseUrl, "/client/activate", {
+        method: "POST",
+        body: { code: typeof body.code === "string" ? body.code.trim() : "" },
+    });
 }
+
+export { POST };

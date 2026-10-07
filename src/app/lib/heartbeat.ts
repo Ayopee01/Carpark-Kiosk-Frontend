@@ -1,77 +1,59 @@
-// Lib
-import { getStoredDeviceCredential, handleDeviceResponseStatus, toUiDeviceType, updateStoredDeviceCredential } from "./device";
-// Types
-import type { UiDeviceType } from "./device";
-import type { ApiErrorResponse, DeviceCheckInResponse } from "@/src/app/type/client";
+// Import Lib
+import { handleDeviceAccessError, postHeartbeat } from "@/src/app/lib/api/client-api";
+import { getStoredDeviceCredential, normalizeBarrierDirection, updateStoredDeviceCredential } from "@/src/app/lib/device";
+// Import Types
+import type { HeartbeatResponse } from "@/src/app/type/api.type";
 
-// Config เวลาส่ง Heartbeat ของอุปกรณ์ไปยัง Server ทุก 45 วินาที (45000 มิลลิวินาที)
+/* -------------------------------------- Config -------------------------------------- */
+
+// Config รอบส่ง heartbeat (ทางเสริม เพราะ ping ของ SSE ทำให้อุปกรณ์ online อยู่แล้ว)
 const HEARTBEAT_INTERVAL_MS = 45000;
 
-// Function สำหรับส่ง Heartbeat ของอุปกรณ์ไปยัง Server และอัปเดตข้อมูล Credential ของอุปกรณ์ใน localStorage
-export async function sendHeartbeat(type?: UiDeviceType) {
+/* -------------------------------------- Functions -------------------------------------- */
+
+// Function ส่ง POST /client/heartbeat แล้วอัปเดตข้อมูลอุปกรณ์ (ไม่มี credential หรือถูกพาไปหน้าอื่นคืน null)
+async function sendHeartbeat(): Promise<HeartbeatResponse | null> {
     const credential = getStoredDeviceCredential();
     if (!credential) return null;
-    if (type && toUiDeviceType(credential.deviceType) !== type) return null;
 
-    // พยายามส่ง Heartbeat ไปยัง Server ถ้ามีข้อผิดพลาดในการส่งจะจับและแจ้งเตือนว่าอุปกรณ์ไม่สามารถเชื่อมต่อกับ Server ได้
-    let response: Response;
     try {
-        response = await fetch("/api/client/check-in", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-device-id": credential.deviceId,
-                "x-device-token": credential.deviceToken,
-            },
-            body: JSON.stringify({
-                deviceId: credential.deviceId,
-                name: credential.deviceName,
-                location: credential.location ?? undefined,
-            }),
-            cache: "no-store",
+        const heartbeat = await postHeartbeat({
+            ...(credential.deviceName ? { name: credential.deviceName } : {}),
+            ...(credential.location ? { location: credential.location } : {}),
         });
+        const { device } = heartbeat;
+
+        updateStoredDeviceCredential({
+            status: heartbeat.status,
+            deviceName: device.deviceName,
+            location: device.location,
+            ...(device.gateId !== undefined ? { gateId: device.gateId } : {}),
+            ...(device.direction !== undefined ? { direction: normalizeBarrierDirection(device.direction) } : {}),
+            ...(device.cameraIds ? { cameraIds: device.cameraIds } : {}),
+            ...(device.printerIds ? { printerIds: device.printerIds } : {}),
+        });
+
+        return heartbeat;
     } catch (error) {
+        if (handleDeviceAccessError(error)) return null;
         throw error;
     }
-
-    // พยายามแปลง response เป็น JSON ถ้ามีข้อผิดพลาดในการแปลงจะจับและคืนค่า null
-    const data = (await response.json().catch(() => null)) as
-        | DeviceCheckInResponse
-        | ApiErrorResponse
-        | null;
-
-    if (handleDeviceResponseStatus(response, data)) {
-        return null;
-    }
-
-    if (!response.ok) {
-        throw new Error(data?.message || `Heartbeat failed (${response.status})`);
-    }
-
-    // ถ้า response เป็น DeviceCheckInResponse จะอัปเดตข้อมูล Credential ของอุปกรณ์ใน localStorage และคืนค่า DeviceCheckInResponse
-    const checkIn = data as DeviceCheckInResponse;
-    updateStoredDeviceCredential({
-        deviceType: checkIn.deviceType,
-        status: checkIn.status,
-        deviceName: checkIn.device.deviceName,
-        location: checkIn.device.deviceLocation,
-        gateId: checkIn.device.gateId ?? undefined,
-        cameraId: checkIn.device.cameraId ?? undefined,
-        direction: checkIn.device.direction ?? undefined,
-    });
-    return checkIn;
 }
 
-// Function สำหรับเริ่มส่ง Heartbeat ของอุปกรณ์ไปยัง Server ทุก 45 วินาที
-export function startHeartbeat() {
-    void sendHeartbeat().catch((error) => {
-        console.warn("Device heartbeat failed:", error);
-    });
+// Function เริ่มส่ง heartbeat ทันทีและส่งซ้ำทุก HEARTBEAT_INTERVAL_MS คืน id ของ interval
+function startHeartbeat(onSuccess?: () => void): number {
+    const run = (): void => {
+        void sendHeartbeat()
+            .then((heartbeat) => {
+                if (heartbeat) onSuccess?.();
+            })
+            .catch((error) => {
+                console.warn("Device heartbeat failed:", error);
+            });
+    };
 
-    // เริ่มส่ง Heartbeat ของอุปกรณ์ไปยัง Serverตามช่วงเวลาที่กำหนด
-    return window.setInterval(() => {
-        void sendHeartbeat().catch((error) => {
-            console.warn("Device heartbeat failed:", error);
-        });
-    }, HEARTBEAT_INTERVAL_MS);
+    run();
+    return window.setInterval(run, HEARTBEAT_INTERVAL_MS);
 }
+
+export { sendHeartbeat, startHeartbeat };

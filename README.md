@@ -20,6 +20,17 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment
+
+ตั้งค่าใน `.env.local` (ไฟล์ `.env*` ถูก ignore ไม่ commit)
+
+| ตัวแปร | ใช้ที่ | ความหมาย |
+|---|---|---|
+| `BASE_URL` | server (Next.js API routes) | host ของ Backend เช่น `https://carpark-uat.biza.me` (ไม่ต้องใส่ `/api`) route ภายใน `/api/client/*` จะ proxy ไปที่ `<BASE_URL>/api/client/*` และ Payment WebSocket ใช้ `wss://<host>/api/client/payments/ws` |
+| `NEXT_PUBLIC_ENABLE_PAYMENT_TEST` | browser + server | `true` = แสดงปุ่ม Dev Test (`POST /api/client/payments/test`) เฉพาะ `next dev` เท่านั้น production build ปิดเสมอ (backend ต้องเปิด `ENABLE_PAYMENT_SIMULATION` ด้วย) |
+
+Browser เรียก Backend ตรงเฉพาะ Payment WebSocket และรูป logo (`/uploads/...`) ส่วน REST และ SSE ผ่าน Next.js API route ทั้งหมด
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

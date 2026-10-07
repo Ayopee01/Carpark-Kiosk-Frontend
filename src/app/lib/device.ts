@@ -1,166 +1,127 @@
-// Types
-import type { DeviceType, StoredDeviceCredential } from "@/src/app/type/client";
+// Import Types
+import type { Direction } from "@/src/app/type/api.type";
+import type { ClientDeviceType, StoredDeviceCredential, UiDeviceType } from "@/src/app/type/device.type";
 
-export type UiDeviceType = "kiosk" | "barrier-gate";
+/* -------------------------------------- Config -------------------------------------- */
 
-// กำหนดชื่อ KEY สำหรับเก็บข้อมูลอุปกรณ์ใน localStorage
+// Config key ที่เก็บข้อมูลอุปกรณ์ใน localStorage
 const DEVICE_CREDENTIAL_KEY = "carparkDeviceCredential";
 
-// Function สำหรับตรวจสอบ localStorage ว่าสามารถใช้งานได้หรือไม่
-function canUseLocalStorage() {
+/* -------------------------------------- Helpers -------------------------------------- */
+
+// Function ตรวจว่าใช้ localStorage ได้หรือไม่
+function canUseLocalStorage(): boolean {
     return typeof window !== "undefined" && Boolean(window.localStorage);
 }
 
-// Function สำหรับแปลงค่า device type ที่อาจมีรูปแบบต่างกันให้เป็น DeviceType ที่ถูกต้อง
-export function normalizeDeviceType(value: unknown): DeviceType | null {
+// Function แปลงค่าเป็น array ของ string ที่ไม่ว่าง
+function toStringArray(value: unknown): string[] {
+    return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === "string" && item.trim() !== "")
+        : [];
+}
+
+/* -------------------------------------- Functions -------------------------------------- */
+
+// Function แปลง device type ให้เป็นค่าที่ Backend ใช้ (ไม่รู้จักคืน null)
+function normalizeDeviceType(value: unknown): ClientDeviceType | null {
     if (value === "kiosk") return "kiosk";
-    if (value === "barrier_gate" || value === "barrier-gate") {
-        return "barrier_gate";
-    }
+    if (value === "barrier_gate" || value === "barrier-gate") return "barrier_gate";
     return null;
 }
 
-export function normalizeBarrierDirection(value: unknown): "IN" | "OUT" | null {
+// Function แปลง direction ให้เป็น "IN" | "OUT" (ไม่รู้จักคืน null)
+function normalizeBarrierDirection(value: unknown): Direction | null {
     if (typeof value !== "string") return null;
     const normalized = value.trim().toUpperCase();
     if (normalized === "IN" || normalized === "OUT") return normalized;
     return null;
 }
 
-// Function สำหรับแปลง DeviceType เป็น UiDeviceType
-export function toUiDeviceType(type: DeviceType): UiDeviceType {
+// Function แปลง device type ของ Backend เป็นค่าที่ใช้เลือก route
+function toUiDeviceType(type: ClientDeviceType): UiDeviceType {
     return type === "barrier_gate" ? "barrier-gate" : "kiosk";
 }
 
-// Function สำหรับดึงข้อมูล Credential ของอุปกรณ์จาก localStorage และตรวจสอบความถูกต้องของข้อมูลก่อนนำไปใช้งาน ถ้าข้อมูลไม่ครบหรือไม่ถูกต้องจะคืนค่า null
-export function getStoredDeviceCredential(): StoredDeviceCredential | null {
+// Function ดึงข้อมูลอุปกรณ์จาก localStorage (ไม่มี deviceId / deviceToken / deviceType คืน null)
+function getStoredDeviceCredential(): StoredDeviceCredential | null {
     if (!canUseLocalStorage()) return null;
 
-    // พยายามดึงข้อมูลจาก localStorage และแปลงเป็น JSON ถ้ามีข้อผิดพลาดในการดึงหรือแปลงจะจับและคืนค่า null
     try {
         const raw = localStorage.getItem(DEVICE_CREDENTIAL_KEY);
         if (!raw) return null;
 
-        // แปลงข้อมูลที่ดึงมาเป็น JSON และตรวจสอบความถูกต้องของข้อมูลก่อนคืนค่า ถ้าข้อมูลไม่ครบหรือไม่ถูกต้องจะคืนค่า null
-        const value = JSON.parse(raw) as Partial<StoredDeviceCredential>;
-        // แปลงค่า deviceType ให้เป็น DeviceType ที่ถูกต้อง ถ้าไม่สามารถแปลงได้จะคืนค่า null
+        const value = JSON.parse(raw) as Record<string, unknown>;
         const deviceType = normalizeDeviceType(value.deviceType);
 
-        // ตรวจสอบว่าข้อมูลที่จำเป็นครบถ้วนและถูกต้อง ถ้าไม่ครบหรือไม่ถูกต้องจะคืนค่า null
         if (
+            typeof value.deviceId !== "string" ||
             !value.deviceId ||
+            typeof value.deviceToken !== "string" ||
             !value.deviceToken ||
-            !deviceType ||
-            !value.deviceName ||
-            !value.status
+            !deviceType
         ) {
             return null;
         }
 
-        // ถ้าข้อมูลครบถ้วนและถูกต้องจะคืนค่า Credential ของอุปกรณ์ในรูปแบบ StoredDeviceCredential
+        // credential ที่บันทึกก่อนมี cameraIds เก็บกล้องเป็น cameraId ตัวเดียว
+        const cameraIds = toStringArray(value.cameraIds);
+        if (cameraIds.length === 0 && typeof value.cameraId === "string" && value.cameraId) {
+            cameraIds.push(value.cameraId);
+        }
+
         return {
             deviceId: value.deviceId,
             deviceToken: value.deviceToken,
             deviceType,
-            deviceName: value.deviceName,
-            location: value.location ?? null,
-            status: value.status,
-            activatedAt: value.activatedAt,
-            gateId: typeof value.gateId === "string" ? value.gateId : null,
-            cameraId: typeof value.cameraId === "string" ? value.cameraId : null,
+            deviceName: typeof value.deviceName === "string" ? value.deviceName : "",
+            location: typeof value.location === "string" ? value.location : null,
+            status: typeof value.status === "string" ? value.status : "active",
+            activatedAt: typeof value.activatedAt === "string" ? value.activatedAt : undefined,
+            gateId: typeof value.gateId === "string" && value.gateId ? value.gateId : null,
             direction: normalizeBarrierDirection(value.direction),
+            cameraIds,
+            printerIds: toStringArray(value.printerIds),
         };
     } catch {
         return null;
     }
 }
 
-// Function สำหรับ Save ข้อมูลอุปกรณ์ลงใน localStorage
-export function saveDeviceCredential(credential: StoredDeviceCredential) {
+// Function บันทึกข้อมูลอุปกรณ์ลง localStorage
+function saveDeviceCredential(credential: StoredDeviceCredential): void {
     if (!canUseLocalStorage()) return;
     localStorage.setItem(DEVICE_CREDENTIAL_KEY, JSON.stringify(credential));
 }
 
-// Function สำหรับ Update ข้อมูลอุปกรณ์ที่มีอยู่ใน localStorage โดยไม่ลบข้อมูลเดิม
-export function updateStoredDeviceCredential(
-    updates: Partial<StoredDeviceCredential>
-) {
+// Function แก้ข้อมูลอุปกรณ์ใน localStorage บาง field โดยคงค่าเดิมที่เหลือ
+function updateStoredDeviceCredential(updates: Partial<StoredDeviceCredential>): void {
     const current = getStoredDeviceCredential();
     if (!current) return;
     saveDeviceCredential({ ...current, ...updates });
 }
 
-// Function สำหรับ Clear ข้อมูลอุปกรณ์ออกจาก localStorage เมื่อมีการ Logout หรือ Unauthorized
-export function clearDeviceStorage() {
+// Function ลบข้อมูลอุปกรณ์ออกจาก localStorage เมื่อ token ใช้ไม่ได้หรือถูก revoke
+function clearDeviceStorage(): void {
     if (!canUseLocalStorage()) return;
     localStorage.removeItem(DEVICE_CREDENTIAL_KEY);
 }
 
-// Function สำหรับดึงข้อมูล Credential ของอุปกรณ์ตามประเภทที่กำหนด (ถ้ามี)
-function getCredentialForType(
-    type?: UiDeviceType
-): StoredDeviceCredential | null {
+// Function สร้าง device headers ของ request (Mobile ไม่มี credential จึงได้ object ว่าง)
+function getDeviceAuthHeaders(): Record<string, string> {
     const credential = getStoredDeviceCredential();
-    if (!credential) return null;
-    if (type && toUiDeviceType(credential.deviceType) !== type) return null;
-    return credential;
-}
-
-// Function สำหรับดึง Device ID และ Token จาก localStorage เพื่อใช้ในการ Authentication กับ API ต่างๆ
-export function getDeviceId(type?: UiDeviceType): string | null {
-    return getCredentialForType(type)?.deviceId ?? null;
-}
-
-// Function สำหรับดึง Device Token จาก localStorage เพื่อใช้ในการ Authentication กับ API ต่างๆ
-export function getDeviceToken(type?: UiDeviceType): string | null {
-    return getCredentialForType(type)?.deviceToken ?? null;
-}
-
-// Function สำหรับสร้าง Headers ที่จำเป็นสำหรับการ Authentication ของอุปกรณ์ใน API Request ต่างๆ โดยจะตรวจสอบประเภทของอุปกรณ์ถ้ามีการระบุ
-export function getDeviceAuthHeaders(
-    type?: UiDeviceType
-): Record<string, string> {
-    const credential = getCredentialForType(type);
     if (!credential) return {};
 
-    const deviceId = credential.deviceId.trim();
-    const deviceToken = credential.deviceToken.trim();
-
-    // ถ้าไม่มีข้อมูลที่จำเป็นจะคืนค่า Headers ว่าง
     return {
-        ...(deviceId ? { "x-device-id": deviceId } : {}),
-        ...(deviceToken ? { "x-device-token": deviceToken } : {}),
+        "x-device-id": credential.deviceId.trim(),
+        "x-device-token": credential.deviceToken.trim(),
     };
 }
 
-// Function สำหรับดึงประเภทของอุปกรณ์ที่ถูก Activate อยู่ในปัจจุบัน (ถ้ามี)
-export function getActivatedDeviceType(): UiDeviceType | null {
+// Function ดึงประเภทของอุปกรณ์ที่ Activate อยู่ (ไม่มีคืน null)
+function getActivatedDeviceType(): UiDeviceType | null {
     const credential = getStoredDeviceCredential();
     return credential ? toUiDeviceType(credential.deviceType) : null;
 }
 
-// Function สำหรับตรวจสอบสถานะการ Activate ของอุปกรณ์ ถ้ามีการ Activate อยู่จะคืนค่า true ถ้าไม่มีหรือข้อมูลไม่ครบจะคืนค่า false
-export function handleDeviceResponseStatus(
-    response: Response,
-    data?: { message?: string; status?: string } | null
-) {
-    if (response.status === 401) {
-        clearDeviceStorage();
-        window.location.replace("/landing/activate");
-        return true;
-    }
-
-    const isMaintenance =
-        response.status === 403 &&
-        (data?.status === "maintenance" ||
-            data?.message?.toLowerCase().includes("maintenance"));
-
-    if (isMaintenance) {
-        window.location.replace("/landing/maintenance");
-        return true;
-    }
-
-    return false;
-}
-
-export type { DeviceType, StoredDeviceCredential };
+export { clearDeviceStorage, getActivatedDeviceType, getDeviceAuthHeaders, getStoredDeviceCredential, normalizeBarrierDirection, normalizeDeviceType, saveDeviceCredential, toUiDeviceType, updateStoredDeviceCredential };

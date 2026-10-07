@@ -1,30 +1,32 @@
 "use client";
 
+// Import Library
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+// Import Lib
 import { getActivatedDeviceType } from "@/src/app/lib/device";
 
-// ----------------------------------- UI -----------------------------------
-function Page() {
-  const router = useRouter();
+// Function พาไปหน้าหลักตามประเภทอุปกรณ์ (ไม่มี credential ไปหน้าค้นหาของ Mobile)
+function Page(): null {
+    const router = useRouter();
 
-  useEffect(() => {
-    const deviceType = getActivatedDeviceType();
+    useEffect(() => {
+        const deviceType = getActivatedDeviceType();
 
-    if (deviceType === "kiosk") {
-      router.replace("/landing/dashboard");
-      return;
-    }
+        if (deviceType === "kiosk") {
+            router.replace("/landing/dashboard");
+            return;
+        }
 
-    if (deviceType === "barrier-gate") {
-      router.replace("/landing/barrier-gate");
-      return;
-    }
+        if (deviceType === "barrier-gate") {
+            router.replace("/landing/barrier-gate");
+            return;
+        }
 
-    router.replace("/landing/search");
-  }, [router]);
+        router.replace("/landing/search");
+    }, [router]);
 
-  return null;
+    return null;
 }
 
 export default Page;

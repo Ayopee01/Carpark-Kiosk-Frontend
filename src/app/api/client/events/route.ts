@@ -1,165 +1,56 @@
-import { NextRequest } from "next/server";
+// Import Library
+import { NextResponse, type NextRequest } from "next/server";
+// Import Lib
+import { buildBackendUrl, getForwardedDeviceHeaders, proxyErrorResponse } from "../backend";
 
+/* -------------------------------------- Config -------------------------------------- */
+
+// Config ให้ route ทำงานทุก request (Next.js ต้องการ export const ของ segment config)
 export const dynamic = "force-dynamic";
+// Config ให้ stream ทำงานบน Node.js runtime
 export const runtime = "nodejs";
+// Config query ที่ Backend รับ (ตัวกรองของ lpr_detected) ส่วน device token ต้องมาทาง header เท่านั้น
+const EVENT_QUERY_KEYS = ["deviceId", "gateId", "direction", "cameraId"] as const;
 
-// Config Ping สำหรับ SSE 25 วินาที
-const PING_INTERVAL_MS = 25000;
+/* -------------------------------------- Routes -------------------------------------- */
 
-// Function สร้างข้อความ ping สำหรับ SSE (Server-Sent Events)
-function createSsePing() {
-    return `data: ${JSON.stringify({
-        type: "ping",
-        at: new Date().toISOString(),
-    })}\n\n`;
-}
-
-// API Route สำหรับ Connect กับ Client Event Stream
-export async function GET(request: NextRequest) {
+// Route ส่ง SSE ของ GET /client/events ต่อให้ Browser (ping มาจาก Backend เพื่อให้ client ตรวจ connection ตายได้)
+async function GET(request: NextRequest): Promise<Response> {
     const baseUrl = process.env.BASE_URL ?? "";
 
     if (!baseUrl) {
-        return new Response("API base URL is not configured", {
-            status: 500,
-            headers: {
-                "Content-Type": "text/plain; charset=utf-8",
-            },
-        });
+        return proxyErrorResponse(500, "API_BASE_URL_NOT_CONFIGURED", "API base URL is not configured");
     }
 
-    // ดึงค่า deviceId, deviceToken, gateId และ direction จาก headers หรือ query parameters
-    const deviceId =
-        request.headers.get("x-device-id")?.trim() ||
-        request.nextUrl.searchParams.get("deviceId")?.trim();
-    const deviceToken =
-        request.headers.get("x-device-token")?.trim() ||
-        request.nextUrl.searchParams.get("deviceToken")?.trim();
-    const gateId = request.nextUrl.searchParams.get("gateId")?.trim();
-    const direction = request.nextUrl.searchParams.get("direction")?.trim();
-    const cameraId = request.nextUrl.searchParams.get("cameraId")?.trim();
+    const query = new URLSearchParams();
+    for (const key of EVENT_QUERY_KEYS) {
+        const value = request.nextUrl.searchParams.get(key)?.trim();
+        if (value) query.set(key, value);
+    }
 
-    // ตรวจสอบว่า deviceId และ deviceToken ถูกส่งมาหรือไม่
     let upstream: Response;
 
-    // เชื่อมต่อกับ upstream event stream ของ backend
     try {
-        // สร้าง query parameters สำหรับ upstream request
-        const params = new URLSearchParams();
-        // ถ้า deviceId, gateId หรือ direction ถูกส่งมา ให้เพิ่มลงใน query parameters
-        if (deviceId) params.set("deviceId", deviceId);
-        if (gateId) params.set("gateId", gateId);
-        if (direction) params.set("direction", direction);
-        if (cameraId) params.set("cameraId", cameraId);
-
-        // GET Request ไปยัง backend เพื่อเชื่อมต่อกับ event stream
-        upstream = await fetch(`${baseUrl}/api/v1/client/events?${params}`, {
+        upstream = await fetch(buildBackendUrl(baseUrl, "/client/events", query), {
             method: "GET",
-            headers: {
-                Accept: "text/event-stream",
-                ...(deviceId ? { "x-device-id": deviceId } : {}),
-                ...(deviceToken ? { "x-device-token": deviceToken } : {}),
-            },
+            headers: { Accept: "text/event-stream", ...getForwardedDeviceHeaders(request) },
             cache: "no-store",
             signal: request.signal,
         });
-
-    // จับข้อผิดพลาดที่เกิดขึ้นระหว่างการเชื่อมต่อกับ upstream
     } catch (error) {
-        return new Response(
-            error instanceof Error
-                ? error.message
-                : "Cannot connect to client event stream",
-            {
-                status: 502,
-                headers: {
-                    "Content-Type": "text/plain; charset=utf-8",
-                },
-            }
-        );
+        return proxyErrorResponse(502, "BACKEND_UNREACHABLE", error instanceof Error ? error.message : "Cannot connect to client event stream");
     }
 
-    // ตรวจสอบว่า upstream response เป็น OK และมี body หรือไม่
+    // Backend ตอบ error เป็น JSON ก่อนเปิด stream เช่น INVALID_DEVICE_CREDENTIALS, DEVICE_MAINTENANCE
     if (!upstream.ok || !upstream.body) {
-        return new Response("Cannot connect to client event stream", {
-            status: upstream.status || 500,
-            headers: {
-                "Content-Type": "text/plain; charset=utf-8",
-            },
-        });
+        const data: unknown = await upstream.json().catch(() => null);
+
+        return data
+            ? NextResponse.json(data, { status: upstream.status })
+            : proxyErrorResponse(upstream.status || 502, "EVENT_STREAM_UNAVAILABLE", "Cannot connect to client event stream");
     }
 
-    // สร้าง ReadableStream สำหรับส่งข้อมูล SSE กลับไปยัง client
-    const encoder = new TextEncoder();
-    // อ่านข้อมูลจาก upstream stream
-    const reader = upstream.body.getReader();
-
-    // สร้าง ReadableStream สำหรับส่งข้อมูล SSE กลับไปยัง client
-    const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-            let closed = false;
-            let pingTimer: ReturnType<typeof setInterval> | null = null;
-
-            const close = () => {
-                if (closed) return;
-                closed = true;
-
-                if (pingTimer) {
-                    clearInterval(pingTimer);
-                }
-
-                try {
-                    controller.close();
-                } catch {
-
-                }
-            };
-
-            // ตั้งค่า ping timer เพื่อส่งข้อความ ping ตามค่า Config "PING_INTERVAL_MS"
-            pingTimer = setInterval(() => {
-                if (closed) return;
-                controller.enqueue(encoder.encode(createSsePing()));
-            }, PING_INTERVAL_MS);
-
-            // เมื่อ client ปิดการเชื่อมต่อ ให้ยกเลิก upstream reader และปิด stream
-            request.signal.addEventListener("abort", () => {
-                void reader.cancel().catch(() => undefined);
-                close();
-            });
-
-            // ส่งข้อความ ping ครั้งแรกทันทีหลังจากเชื่อมต่อ
-            controller.enqueue(encoder.encode(createSsePing()));
-
-            // อ่านข้อมูลจาก upstream stream และส่งต่อไปยัง client
-            void (async () => {
-                try {
-                    while (!closed) {
-                        const { done, value } = await reader.read();
-
-                        if (closed) return;
-
-                        if (done) {
-                            close();
-                            return;
-                        }
-
-                        if (value) {
-                            controller.enqueue(value);
-                        }
-                    }
-                } catch {
-                    close();
-                } finally {
-                    reader.releaseLock();
-                }
-            })();
-        },
-        cancel() {
-            void reader.cancel().catch(() => undefined);
-        },
-    });
-
-    // ส่งข้อมูล SSE กลับไปยัง client
-    return new Response(stream, {
+    return new Response(upstream.body, {
         status: 200,
         headers: {
             "Content-Type": "text/event-stream; charset=utf-8",
@@ -169,3 +60,5 @@ export async function GET(request: NextRequest) {
         },
     });
 }
+
+export { GET };
