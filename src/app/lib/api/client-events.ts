@@ -1,5 +1,5 @@
 // Import Lib
-import { ApiClientError, handleDeviceAccessError, toApiErrorResponse } from "@/src/app/lib/api/client-api";
+import { ApiClientError, buildApiUrl, handleDeviceAccessError, toApiErrorResponse } from "@/src/app/lib/api/client-api";
 import { getDeviceAuthHeaders } from "@/src/app/lib/device";
 // Import Types
 import type { ClientStreamEvent, GateAction, LprDetectedEvent } from "@/src/app/type/api.type";
@@ -131,7 +131,7 @@ function openClientEventStream({ query, onEvent, onStateChange }: ClientEventStr
         if (typeof value === "string" && value) params.set(key, value);
     }
     const queryString = params.toString();
-    const url = queryString ? `/api/client/events?${queryString}` : "/api/client/events";
+    const url = queryString ? `${buildApiUrl("/client/events")}?${queryString}` : buildApiUrl("/client/events");
 
     const clearWatchdog = (): void => {
         if (watchdogTimer !== null) window.clearInterval(watchdogTimer);

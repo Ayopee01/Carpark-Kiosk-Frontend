@@ -26,10 +26,12 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 | ตัวแปร | ใช้ที่ | ความหมาย |
 |---|---|---|
-| `BASE_URL` | server (Next.js API routes) | host ของ Backend เช่น `https://carpark-uat.biza.me` (ไม่ต้องใส่ `/api`) route ภายใน `/api/client/*` จะ proxy ไปที่ `<BASE_URL>/api/client/*` และ Payment WebSocket ใช้ `wss://<host>/api/client/payments/ws` |
-| `NEXT_PUBLIC_ENABLE_PAYMENT_TEST` | browser + server | `true` = แสดงปุ่ม Dev Test (`POST /api/client/payments/test`) เฉพาะ `next dev` เท่านั้น production build ปิดเสมอ (backend ต้องเปิด `ENABLE_PAYMENT_SIMULATION` ด้วย) |
+| `NEXT_PUBLIC_API_BASE_URL` | browser (ฝังตอน build) | origin ของ Backend เช่น `https://carpark-uat.biza.me` (ไม่ต้องใส่ `/api` และไม่มี `/` ปิดท้าย) Browser เรียก `<NEXT_PUBLIC_API_BASE_URL>/api/client/*` ตรง และ Payment WebSocket ใช้ `wss://<host>/api/client/payments/ws` เปลี่ยนค่าแล้วต้อง build ใหม่ |
+| `NEXT_PUBLIC_ENABLE_PAYMENT_TEST` | browser | `true` = แสดงปุ่ม Dev Test (`POST /api/client/payments/test`) เฉพาะ `next dev` เท่านั้น production build ปิดเสมอ (backend ต้องเปิด `ENABLE_PAYMENT_SIMULATION` ด้วย) |
 
-Browser เรียก Backend ตรงเฉพาะ Payment WebSocket และรูป logo (`/uploads/...`) ส่วน REST และ SSE ผ่าน Next.js API route ทั้งหมด
+Browser เรียก Backend ตรงทั้งหมด (REST, SSE, Payment WebSocket, รูป QR และ logo) ไม่มี Next.js API route
+
+Backend ต้องใส่ origin ที่เปิดแอปนี้ (Kiosk / Barrier Gate / Mobile) ใน `CLIENT_ORIGINS` เช่น `https://kiosk.example.com` ไม่งั้นได้ `403 CORS_NOT_ALLOWED`
 
 ## Learn More
 

@@ -467,24 +467,12 @@ export type PaymentSocketMessage =
 
 /* -------------------------------------- Next Route Types -------------------------------------- */
 
-// Type response ของ GET /api/client/payments/socket (URL ของ Payment WebSocket ของ Backend)
-export interface PaymentSocketUrlResponse {
-    url: string;
-}
+// Type method ที่ Browser ใช้เรียก Backend
+export type ClientRequestMethod = "GET" | "POST";
 
-// Type method ที่ Next.js API route ส่งต่อให้ Backend
-export type BackendRequestMethod = "GET" | "POST";
-
-// Type option ของการส่ง JSON request ต่อไปที่ Backend
-export interface BackendRequestOptions {
-    method: BackendRequestMethod;
-    query?: URLSearchParams;
-    body?: unknown;
-}
-
-// Type option ของการเรียก Next.js API route จาก Browser
+// Type option ของการเรียก Backend จาก Browser
 export interface ClientRequestOptions {
-    method: BackendRequestMethod;
+    method: ClientRequestMethod;
     query?: Record<string, string | undefined>;
     body?: unknown;
 }

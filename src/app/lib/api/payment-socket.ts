@@ -56,17 +56,16 @@ function openPaymentSocket(chargeId: string, onPaymentUpdated: PaymentUpdatedLis
         attempt += 1;
         reconnectTimer = window.setTimeout(() => {
             reconnectTimer = null;
-            void connect();
+            connect();
         }, delay);
     };
 
-    const connect = async (): Promise<void> => {
-        try {
-            const baseUrl = await getPaymentSocketUrl();
-            if (stopped) return;
+    const connect = (): void => {
+        if (stopped) return;
 
+        try {
             // ใส่ chargeId ใน URL แล้วไม่ต้องส่ง subscribe และจะได้สถานะล่าสุด (replayed) ทันที
-            const url = new URL(baseUrl);
+            const url = new URL(getPaymentSocketUrl());
             url.searchParams.set("chargeId", chargeId);
 
             const nextSocket = new WebSocket(url.toString());
@@ -93,7 +92,7 @@ function openPaymentSocket(chargeId: string, onPaymentUpdated: PaymentUpdatedLis
         }
     };
 
-    void connect();
+    connect();
 
     return () => {
         stopped = true;

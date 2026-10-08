@@ -1,12 +1,18 @@
 // Import Lib
 import { clearDeviceStorage, getDeviceAuthHeaders, getStoredDeviceCredential } from "@/src/app/lib/device";
 // Import Types
-import type { ActivateRequest, ActivateResponse, ApiErrorResponse, ClientConfigResponse, ClientPaymentMethodsResponse, ClientPlateLookupMultiple, ClientRequestOptions, ClientTransaction, ClientTransactionLookupResponse, CreateChargeRequest, CreateChargeResponse, EdcPaymentRequest, EdcPaymentResponse, HeartbeatRequest, HeartbeatResponse, PaymentSocketUrlResponse, TestPaymentRequest, TestPaymentResponse } from "@/src/app/type/api.type";
+import type { ActivateRequest, ActivateResponse, ApiErrorResponse, ClientConfigResponse, ClientPaymentMethodsResponse, ClientPlateLookupMultiple, ClientRequestOptions, ClientTransaction, ClientTransactionLookupResponse, CreateChargeRequest, CreateChargeResponse, EdcPaymentRequest, EdcPaymentResponse, HeartbeatRequest, HeartbeatResponse, TestPaymentRequest, TestPaymentResponse } from "@/src/app/type/api.type";
 
 /* -------------------------------------- Config -------------------------------------- */
 
-// Config code ที่ frontend ใช้เมื่อ request ไม่ถึง Next.js API route
+// Config origin ของ Backend เช่น https://carpark-uat.biza.me (ไม่มี /api ต่อท้าย ฝังตอน build)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+// Config prefix ของทุกเส้นใน Backend
+const API_PREFIX = "/api";
+// Config code ที่ frontend ใช้เมื่อ request ไม่ถึง Backend (network หรือ CORS)
 const NETWORK_ERROR_CODE = "NETWORK_ERROR";
+// Config code ที่ frontend ใช้เมื่อ Backend ตอบสำเร็จแต่ body ไม่ใช่ JSON
+const INVALID_RESPONSE_CODE = "INVALID_BACKEND_RESPONSE";
 // Config หน้าที่ใช้เมื่อต้องกรอก activation code ใหม่
 const ACTIVATE_PATH = "/landing/activate";
 // Config หน้าล็อกเมื่ออุปกรณ์ปิดปรับปรุงหรือใช้งานไม่ได้ชั่วคราว
@@ -63,14 +69,19 @@ function replaceLocation(path: string): void {
     window.location.replace(path);
 }
 
-// Function เรียก Next.js API route พร้อม device headers (ถ้ามี) และไม่ส่ง cookie
+// Function สร้าง URL เต็มของ Backend จาก path ใต้ /api เช่น "/client/config"
+function buildApiUrl(path: string): string {
+    return `${API_BASE_URL}${API_PREFIX}${path}`;
+}
+
+// Function เรียก Backend ตรงพร้อม device headers (ถ้ามี) และไม่ส่ง cookie (CORS ของ client ไม่รับ credentials)
 async function clientRequest<T>(path: string, options: ClientRequestOptions): Promise<T> {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(options.query ?? {})) {
         if (value) query.set(key, value);
     }
     const queryString = query.toString();
-    const url = queryString ? `${path}?${queryString}` : path;
+    const url = queryString ? `${buildApiUrl(path)}?${queryString}` : buildApiUrl(path);
 
     let response: Response;
 
@@ -95,7 +106,12 @@ async function clientRequest<T>(path: string, options: ClientRequestOptions): Pr
 
     const data: unknown = await response.json().catch(() => null);
 
-    if (!response.ok || data === null) {
+    // ตอบสำเร็จแต่อ่าน body ไม่ได้ ถือเป็น 502 เพื่อให้ผู้เรียกส่งซ้ำได้ (เช่น EDC ส่งซ้ำด้วย reference เดิม)
+    if (response.ok && data === null) {
+        throw new ApiClientError(502, { message: "Backend returned an invalid response", code: INVALID_RESPONSE_CODE });
+    }
+
+    if (!response.ok) {
         throw new ApiClientError(response.status, toApiErrorResponse(response.status, data));
     }
 
@@ -141,29 +157,36 @@ function handleDeviceAccessError(error: unknown): boolean {
 
 /* -------------------------------------- Functions -------------------------------------- */
 
-// Function ดึง theme ของ GET /client/config (เรียกได้ก่อน Activate)
-function getClientConfig(): Promise<ClientConfigResponse> {
-    return clientRequest<ClientConfigResponse>("/api/client/config", { method: "GET" });
+// Function ดึง theme ของ GET /client/config (เรียกได้ก่อน Activate) และต่อ host ของ API ให้ logoUrl ที่เป็น /uploads/...
+async function getClientConfig(): Promise<ClientConfigResponse> {
+    const config = await clientRequest<ClientConfigResponse>("/client/config", { method: "GET" });
+    const { logoUrl } = config.theme;
+
+    if (typeof logoUrl === "string" && logoUrl.startsWith("/uploads")) {
+        return { ...config, theme: { ...config.theme, logoUrl: `${API_BASE_URL}${logoUrl}` } };
+    }
+
+    return config;
 }
 
 // Function เปิดใช้งานอุปกรณ์ด้วย activation code (POST /client/activate)
 function activateDevice(body: ActivateRequest): Promise<ActivateResponse> {
-    return clientRequest<ActivateResponse>("/api/client/activate", { method: "POST", body });
+    return clientRequest<ActivateResponse>("/client/activate", { method: "POST", body: { code: body.code.trim() } });
 }
 
 // Function ส่ง heartbeat ของอุปกรณ์ (POST /client/heartbeat)
 function postHeartbeat(body: HeartbeatRequest): Promise<HeartbeatResponse> {
-    return clientRequest<HeartbeatResponse>("/api/client/heartbeat", { method: "POST", body });
+    return clientRequest<HeartbeatResponse>("/client/heartbeat", { method: "POST", body });
 }
 
 // Function ค้นหารายการจอดด้วยทะเบียนอย่างน้อย 4 ตัวอักษร (อาจได้ผลหลายคัน)
 function lookupTransactionByPlate(plateNo: string): Promise<ClientTransactionLookupResponse> {
-    return clientRequest<ClientTransactionLookupResponse>("/api/client/transactions", { method: "GET", query: { plateNo } });
+    return clientRequest<ClientTransactionLookupResponse>("/client/transactions", { method: "GET", query: { plateNo: plateNo.trim() } });
 }
 
 // Function ดึงรายการจอดด้วย transaction id (GET /client/transactions/:id)
 function getTransactionById(transactionId: string): Promise<ClientTransaction> {
-    return clientRequest<ClientTransaction>(`/api/client/transactions/${encodeURIComponent(transactionId)}`, { method: "GET" });
+    return clientRequest<ClientTransaction>(`/client/transactions/${encodeURIComponent(transactionId)}`, { method: "GET" });
 }
 
 // Function ตรวจว่าผลค้นหาเป็นทะเบียนที่ตรงหลายคัน
@@ -173,33 +196,37 @@ function isPlateLookupMultiple(result: ClientTransactionLookupResponse): result 
 
 // Function ดึงวิธีชำระที่ช่องทางนี้ใช้ได้ (เรียกทุกครั้งก่อนแสดงหน้าเลือกวิธีชำระ)
 function getPaymentMethods(): Promise<ClientPaymentMethodsResponse> {
-    return clientRequest<ClientPaymentMethodsResponse>("/api/client/payments/methods", { method: "GET" });
+    return clientRequest<ClientPaymentMethodsResponse>("/client/payments/methods", { method: "GET" });
 }
 
-// Function สร้าง QR PromptPay (POST /client/payments/charges ห้ามส่ง amount / token / source)
+// Function สร้าง QR PromptPay (POST /client/payments/charges ส่งเฉพาะ plateNo / method / returnUri ห้ามส่ง amount / token / source)
 function createPromptPayCharge(body: CreateChargeRequest): Promise<CreateChargeResponse> {
-    return clientRequest<CreateChargeResponse>("/api/client/payments/charges", { method: "POST", body });
+    return clientRequest<CreateChargeResponse>("/client/payments/charges", {
+        method: "POST",
+        body: { plateNo: body.plateNo, method: "promptpay", ...(body.returnUri ? { returnUri: body.returnUri } : {}) },
+    });
 }
 
-// Function สร้าง URL รูป QR ของ charge ที่ใช้เป็น <img src> ได้ (เฉพาะ charge ที่ยังรอจ่าย)
+// Function สร้าง URL รูป QR ของ charge บน Backend ที่ใช้เป็น <img src> ได้ (เฉพาะ charge ที่ยังรอจ่าย)
 function getChargeQrImageUrl(chargeId: string): string {
-    return `/api/client/payments/charges/${encodeURIComponent(chargeId)}/qr`;
+    return buildApiUrl(`/client/payments/charges/${encodeURIComponent(chargeId)}/qr`);
 }
 
 // Function บันทึกการชำระด้วยบัตรหลังเครื่อง EDC อนุมัติแล้ว (POST /client/payments/edc)
 function recordEdcPayment(body: EdcPaymentRequest): Promise<EdcPaymentResponse> {
-    return clientRequest<EdcPaymentResponse>("/api/client/payments/edc", { method: "POST", body });
+    return clientRequest<EdcPaymentResponse>("/client/payments/edc", { method: "POST", body });
 }
 
 // Function จำลองการชำระเงินของ Dev Test (POST /client/payments/test)
 function simulateTestPayment(body: TestPaymentRequest): Promise<TestPaymentResponse> {
-    return clientRequest<TestPaymentResponse>("/api/client/payments/test", { method: "POST", body });
+    return clientRequest<TestPaymentResponse>("/client/payments/test", { method: "POST", body });
 }
 
-// Function ดึง URL ของ Payment WebSocket (wss://<host>/api/client/payments/ws) จาก Next.js API route
-async function getPaymentSocketUrl(): Promise<string> {
-    const { url } = await clientRequest<PaymentSocketUrlResponse>("/api/client/payments/socket", { method: "GET" });
-    return url;
+// Function สร้าง URL ของ Payment WebSocket (wss://<host>/api/client/payments/ws) จาก origin ของ Backend
+function getPaymentSocketUrl(): string {
+    const url = new URL(buildApiUrl("/client/payments/ws"));
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    return url.toString();
 }
 
-export { ACTIVATE_PATH, ApiClientError, MAINTENANCE_PATH, NETWORK_ERROR_CODE, activateDevice, createPromptPayCharge, getChargeQrImageUrl, getClientConfig, getPaymentMethods, getPaymentSocketUrl, getTransactionById, handleDeviceAccessError, hasErrorCode, isPlateLookupMultiple, lookupTransactionByPlate, postHeartbeat, recordEdcPayment, resetDeviceToActivation, simulateTestPayment, toApiErrorResponse };
+export { ACTIVATE_PATH, ApiClientError, MAINTENANCE_PATH, NETWORK_ERROR_CODE, activateDevice, buildApiUrl, createPromptPayCharge, getChargeQrImageUrl, getClientConfig, getPaymentMethods, getPaymentSocketUrl, getTransactionById, handleDeviceAccessError, hasErrorCode, isPlateLookupMultiple, lookupTransactionByPlate, postHeartbeat, recordEdcPayment, resetDeviceToActivation, simulateTestPayment, toApiErrorResponse };
