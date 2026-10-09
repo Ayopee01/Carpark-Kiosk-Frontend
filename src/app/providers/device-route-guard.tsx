@@ -1,13 +1,11 @@
 "use client";
 
 // Import Library
-import { useEffect, type ReactElement } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 // Import Lib
 import { getActivatedDeviceType } from "@/src/app/lib/device";
 import { BARRIER_RETURN_STORAGE_KEY } from "@/src/app/lib/storage-keys";
-// Import Types
-import type { ChildrenProps } from "@/src/app/type/ui.type";
 
 /* -------------------------------------- Config -------------------------------------- */
 
@@ -39,7 +37,7 @@ function isLandingPath(pathname: string): boolean {
 /* -------------------------------------- Functions -------------------------------------- */
 
 // Function จำกัด route ให้ตรงกับประเภทอุปกรณ์ที่ Activate (ตรวจทุกครั้งที่ route หรือ query เปลี่ยน)
-function DeviceRouteGuard({ children }: ChildrenProps): ReactElement {
+function DeviceRouteGuard(): null {
     const pathname = usePathname();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -70,7 +68,7 @@ function DeviceRouteGuard({ children }: ChildrenProps): ReactElement {
         }
     }, [pathname, router, searchParams]);
 
-    return <>{children}</>;
+    return null;
 }
 
 export default DeviceRouteGuard;

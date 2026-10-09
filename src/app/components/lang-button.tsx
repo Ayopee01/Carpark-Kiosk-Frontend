@@ -1,9 +1,10 @@
 "use client";
 
 // Import Library
-import { useEffect, useRef, useState, useTransition, type ReactElement } from "react";
-import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useTranslations } from "next-intl";
+// Import Providers
+import { useLocaleSetting } from "@/src/app/providers/locale-provider";
 // Import Types
 import type { LangButtonProps, SupportedLocale } from "@/src/app/type/ui.type";
 // Import CSS
@@ -20,23 +21,14 @@ const LANGUAGE_OPTIONS: { locale: SupportedLocale; labelKey: "thai" | "english" 
     { locale: "zh", labelKey: "chinese" },
 ];
 
-/* -------------------------------------- Helpers -------------------------------------- */
-
-// Function บันทึกภาษาที่เลือกลง cookie locale ที่ i18n/request.ts อ่าน
-function saveLocaleCookie(locale: SupportedLocale): void {
-    document.cookie = `locale=${locale}; path=/; samesite=lax`;
-}
-
 /* -------------------------------------- Functions -------------------------------------- */
 
-// Function แสดงปุ่มเลือกภาษาแบบ Dropdown (บันทึก locale ใน cookie แล้ว refresh หน้า)
+// Function แสดงปุ่มเลือกภาษาแบบ Dropdown (เปลี่ยนภาษาทันทีและจำภาษาที่เลือกล่าสุดไว้)
 function LangButton({ variant = "side" }: LangButtonProps): ReactElement {
     const [open, setOpen] = useState(false);
-    const [isPending, startTransition] = useTransition();
     const wrapRef = useRef<HTMLDivElement>(null);
 
-    const router = useRouter();
-    const locale = useLocale();
+    const { locale, setLocale } = useLocaleSetting();
     const t = useTranslations("SideMenu");
 
     // ปิด Dropdown เมื่อคลิกนอกพื้นที่หรือกด Escape
@@ -62,10 +54,7 @@ function LangButton({ variant = "side" }: LangButtonProps): ReactElement {
         setOpen(false);
         if (nextLocale === locale) return;
 
-        saveLocaleCookie(nextLocale);
-        startTransition(() => {
-            router.refresh();
-        });
+        setLocale(nextLocale);
     };
 
     return (
@@ -74,9 +63,8 @@ function LangButton({ variant = "side" }: LangButtonProps): ReactElement {
                 type="button"
                 className={variant === "nav" ? "langButton" : "langButton_side"}
                 onClick={() => setOpen((prev) => !prev)}
-                disabled={isPending}
             >
-                <span>{isPending ? "..." : locale.toUpperCase()}</span>
+                <span>{locale.toUpperCase()}</span>
                 <FiChevronDown className={open ? "rotate" : ""} />
             </button>
 
@@ -88,7 +76,6 @@ function LangButton({ variant = "side" }: LangButtonProps): ReactElement {
                             type="button"
                             className={`langDropdownItem ${locale === option.locale ? "active" : ""}`}
                             onClick={() => handleSelectLanguage(option.locale)}
-                            disabled={isPending}
                         >
                             {option.locale.toUpperCase()} - {t(option.labelKey)}
                         </button>

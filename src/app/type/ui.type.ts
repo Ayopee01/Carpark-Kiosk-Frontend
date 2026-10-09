@@ -13,6 +13,12 @@ export type ChildrenProps = {
 // Type ภาษาที่รองรับ
 export type SupportedLocale = "th" | "en" | "zh";
 
+// Type ค่าใน Context ของภาษา
+export type LocaleContextValue = {
+    locale: SupportedLocale;
+    setLocale: (locale: SupportedLocale) => void;
+};
+
 // Type props ของปุ่มเลือกภาษา (nav = บน Navbar, side = ใน Side Menu)
 export type LangButtonProps = {
     variant?: "nav" | "side";
