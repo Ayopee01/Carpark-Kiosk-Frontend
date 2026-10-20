@@ -4,8 +4,9 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { useLocale, useTranslations } from "next-intl";
 // Import Lib
-import { ApiClientError, NETWORK_ERROR_CODE, recordEdcPayment } from "@/src/app/lib/api/client-api";
+import { recordEdcPayment } from "@/src/app/lib/api/client-api";
 import { EdcNotConnectedError, edcAdapter } from "@/src/app/lib/edc-adapter";
+import { classifyEdcSaveError } from "@/src/app/lib/payment/edc-save-error";
 import { completionFromTransaction } from "@/src/app/lib/payment/payment-result";
 // Import Types
 import type { EdcApproval, EdcPaymentPopupContentProps, EdcPaymentPopupProps, EdcStep } from "@/src/app/type/payment.type";
@@ -54,16 +55,28 @@ function EdcPaymentPopupContent({ onClose, transaction, edc, onSuccess }: EdcPay
 
                 onSuccess?.(completionFromTransaction(result.transaction));
             } catch (saveError) {
-                // ไม่ถึง Backend หรือ Backend ล่ม: ส่งซ้ำด้วย reference เดิมได้ (ได้ duplicate: true ถ้าเคยบันทึกแล้ว)
-                if (!(saveError instanceof ApiClientError) || saveError.code === NETWORK_ERROR_CODE || saveError.status >= 500) {
-                    setStep("retry");
-                    setError(t("saveNetworkFailed", { reference: nextApproval.reference }));
-                    return;
-                }
+                const { reference } = nextApproval;
 
-                // Backend ปฏิเสธหลังเครื่องอนุมัติแล้ว ไม่เปลี่ยนหน้า เพื่อให้พนักงานเห็นเลขอนุมัติและ void ที่เครื่อง EDC
-                setStep("void");
-                setError(t("voidRequired", { message: saveError.message, reference: nextApproval.reference }));
+                switch (classifyEdcSaveError(saveError)) {
+                    case "retry":
+                        setStep("retry");
+                        setError(t("saveNetworkFailed", { reference }));
+                        return;
+                    case "limited":
+                        setStep("retry");
+                        setError(t("saveLimited", { reference }));
+                        return;
+                    // ผู้ให้บริการ EDC ไม่พบเลขอนุมัติ: ไม่ถือว่าจ่ายแล้ว ให้เจ้าหน้าที่ตรวจสอบ
+                    case "rejected":
+                        setStep("rejected");
+                        setError(t("approvalRejected", { reference }));
+                        return;
+                    // Backend ปฏิเสธหลังเครื่องอนุมัติแล้ว ไม่เปลี่ยนหน้า เพื่อให้พนักงานเห็นเลขอนุมัติและ void ที่เครื่อง EDC
+                    case "void":
+                        setStep("void");
+                        setError(t("voidRequired", { message: saveError instanceof Error ? saveError.message : "", reference }));
+                        return;
+                }
             }
         },
         [onSuccess, t, transaction.transactionId]

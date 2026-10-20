@@ -1,6 +1,7 @@
 // Import Lib
-import { ApiClientError, buildApiUrl, handleDeviceAccessError, toApiErrorResponse } from "@/src/app/lib/api/client-api";
+import { buildApiUrl, createResponseError, handleDeviceAccessError } from "@/src/app/lib/api/client-api";
 import { getDeviceAuthHeaders } from "@/src/app/lib/device";
+import { getDeviceAuthPauseRemainingMs } from "@/src/app/lib/device-auth-pause";
 // Import Types
 import type { ClientStreamEvent, GateAction, LprDetectedEvent } from "@/src/app/type/api.type";
 import type { ClientEventStreamOptions } from "@/src/app/type/realtime.type";
@@ -119,6 +120,7 @@ function parseSseMessage(rawMessage: string): unknown {
 /* -------------------------------------- Functions -------------------------------------- */
 
 // Function เปิด GET /client/events ด้วย fetch (ส่ง device headers ได้) พร้อม reconnect แบบ backoff คืน function ปิด stream
+// ต่อไม่สำเร็จจะอ่าน status + body (code, reason) แล้วใช้กฎเดียวกับ REST และรอครบ Retry-After ก่อนต่อใหม่เมื่อถูกพัก (429)
 function openClientEventStream({ query, onEvent, onStateChange }: ClientEventStreamOptions): () => void {
     let stopped = false;
     let attempt = 0;
@@ -142,16 +144,27 @@ function openClientEventStream({ query, onEvent, onStateChange }: ClientEventStr
         if (stopped) return;
         onStateChange?.("disconnected");
 
-        const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+        const backoff = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS) + Math.random() * 500;
         attempt += 1;
         reconnectTimer = window.setTimeout(() => {
             reconnectTimer = null;
             void connect();
-        }, delay + Math.random() * 500);
+        }, Math.max(backoff, getDeviceAuthPauseRemainingMs()));
     };
 
     const connect = async (): Promise<void> => {
         if (stopped) return;
+
+        // ถูกพักจาก heartbeat หรือ request อื่น: ไม่ต่อจนกว่าจะครบเวลา
+        const pauseMs = getDeviceAuthPauseRemainingMs();
+        if (pauseMs > 0) {
+            onStateChange?.("disconnected");
+            reconnectTimer = window.setTimeout(() => {
+                reconnectTimer = null;
+                void connect();
+            }, pauseMs);
+            return;
+        }
 
         const currentController = new AbortController();
         controller = currentController;
@@ -170,7 +183,8 @@ function openClientEventStream({ query, onEvent, onStateChange }: ClientEventStr
 
             if (!response.ok || !response.body) {
                 const data: unknown = await response.json().catch(() => null);
-                const error = new ApiClientError(response.status, toApiErrorResponse(response.status, data));
+                // 429 TOO_MANY_DEVICE_AUTH_ATTEMPTS ถูกพักใน createResponseError แล้ว scheduleReconnect จะรอครบ Retry-After
+                const error = createResponseError(response, data);
 
                 // token ใช้ไม่ได้หรือ maintenance: เปลี่ยนหน้าแล้วหยุด reconnect
                 if (handleDeviceAccessError(error)) {

@@ -212,6 +212,7 @@ function PaymentPopupContent({ onClose, transaction, onSuccess }: PaymentPopupCo
 
                         <div className="payment-popup__qr-frame">
                             {qrImageSrc ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- รูป QR ของ charge โหลดจาก API ตรง ห้ามผ่าน optimizer/cache
                                 <img className="payment-popup__qr-icon" src={qrImageSrc} alt={t("qrAlt")} />
                             ) : (
                                 <div className="payment-popup__qr-empty">{step === "creating" ? t("creatingQr") : t("qrUnavailable")}</div>

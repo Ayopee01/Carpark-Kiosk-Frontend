@@ -262,6 +262,12 @@
     "notConnected": "EDC 终端未连接，请选择其他付款方式。",
     "cardFailed": "银行卡未获批准，请重试。",
     "saveNetworkFailed": "无法连接系统，付款未记录，请重新发送（授权码 {reference}）。",
-    "voidRequired": "付款无法记录（{message}），请联系工作人员在 EDC 终端撤销交易（授权码 {reference}）。"
+    "voidRequired": "付款无法记录（{message}），请联系工作人员在 EDC 终端撤销交易（授权码 {reference}）。",
+    "saveLimited": "此设备连接已暂停，付款尚未记录，请在等待结束后重新发送（授权码 {reference}）。",
+    "approvalRejected": "刷卡付款验证未通过，付款尚未记录，请联系工作人员（授权码 {reference}）。"
+  },
+  "DeviceAuthPause": {
+    "title": "连接已暂停",
+    "description": "此设备连接已暂停，将在 {seconds} 秒后重新连接。"
   }
 }

@@ -35,6 +35,7 @@ function Navbar(): ReactElement {
                 <div className="inner">
                     <div className="content-left">
                         {shouldShowLogo && logoSrc ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- โลโก้มาจาก API คนละโดเมน
                             <img
                                 key={logoSrc}
                                 src={logoSrc}

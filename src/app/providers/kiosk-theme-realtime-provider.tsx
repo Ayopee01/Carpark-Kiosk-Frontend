@@ -3,7 +3,7 @@
 // Import Library
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactElement } from "react";
 // Import Lib
-import { getClientConfig, resetDeviceToActivation } from "@/src/app/lib/api/client-api";
+import { getClientConfig, handleDeviceRevoked } from "@/src/app/lib/api/client-api";
 import { openClientEventStream } from "@/src/app/lib/api/client-events";
 import { getStoredDeviceCredential } from "@/src/app/lib/device";
 import { KIOSK_THEME_STORAGE_KEY, applyKioskThemeToRoot, getKioskThemeFromStorage, normalizeKioskTheme, saveKioskThemeToStorage } from "@/src/app/lib/kiosk-theme";
@@ -105,6 +105,7 @@ function KioskThemeRealtimeProvider({ children }: ChildrenProps): ReactElement {
         const cachedMeta = getKioskMetaFromStorage();
 
         if (cachedTheme) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage อ่านได้หลัง hydrate เท่านั้น (หน้าเป็น static prerender)
             commitTheme(cachedTheme);
             setLoading(false);
         }
@@ -162,10 +163,10 @@ function KioskThemeRealtimeProvider({ children }: ChildrenProps): ReactElement {
                     case "payment_settings_updated":
                         window.dispatchEvent(new Event(PAYMENT_SETTINGS_UPDATED_EVENT));
                         break;
-                    // Admin ออก activation code ใหม่: token เดิมใช้ไม่ได้แล้ว
+                    // token ใช้ไม่ได้แล้ว (เช่น Admin ออก activation code ใหม่ หรือลบอุปกรณ์)
                     case "device_revoked":
                         closeStream();
-                        resetDeviceToActivation();
+                        handleDeviceRevoked(event.reason);
                         break;
                 }
             },

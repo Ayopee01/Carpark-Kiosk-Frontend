@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Suspense, type ReactElement, type ReactNode } from "react";
 import { Inter, Noto_Sans_Thai } from "next/font/google";
 // Import Components
+import DeviceAuthPauseNotice from "@/src/app/components/device-auth-pause-notice";
 import Navbar from "@/src/app/components/navbar";
 // Import Providers
 import DeviceRouteGuard from "@/src/app/providers/device-route-guard";
@@ -52,6 +53,7 @@ function RootLayout({ children }: Readonly<{ children: ReactNode }>): ReactEleme
                         <KioskThemeRealtimeProvider>
                             <Navbar />
                             <Suspense fallback={null}>{children}</Suspense>
+                            <DeviceAuthPauseNotice />
                         </KioskThemeRealtimeProvider>
                     </HeartbeatProvider>
                 </LocaleProvider>

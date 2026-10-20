@@ -1,12 +1,14 @@
 // Import Lib
 import { clearDeviceStorage, getDeviceAuthHeaders, getStoredDeviceCredential } from "@/src/app/lib/device";
+import { pauseDeviceAuth } from "@/src/app/lib/device-auth-pause";
 // Import Types
 import type { ActivateRequest, ActivateResponse, ApiErrorResponse, ClientConfigResponse, ClientPaymentMethodsResponse, ClientPlateLookupMultiple, ClientRequestOptions, ClientTransaction, ClientTransactionLookupResponse, CreateChargeRequest, CreateChargeResponse, EdcPaymentRequest, EdcPaymentResponse, HeartbeatRequest, HeartbeatResponse, TestPaymentRequest, TestPaymentResponse } from "@/src/app/type/api.type";
 
 /* -------------------------------------- Config -------------------------------------- */
 
-// Config origin ของ Backend เช่น https://carpark-uat.biza.me (ไม่มี /api ต่อท้าย ฝังตอน build)
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+// Config origin ของ Backend เช่น https://api.<domain> (ไม่มี /api และ / ต่อท้าย ฝังตอน build)
+// ว่าง = เรียก /api/client ของโดเมนเดียวกับหน้าเว็บ (ใช้ได้เมื่อ Nginx ของโดเมน Kiosk ส่งต่อให้ Backend)
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").trim().replace(/\/+$/, "");
 // Config prefix ของทุกเส้นใน Backend
 const API_PREFIX = "/api";
 // Config code ที่ frontend ใช้เมื่อ request ไม่ถึง Backend (network หรือ CORS)
@@ -21,21 +23,25 @@ const MAINTENANCE_PATH = "/landing/maintenance";
 const DEVICE_REACTIVATE_CODES = new Set(["INVALID_DEVICE", "UNAUTHORIZED_DEVICE", "DEVICE_CREDENTIALS_REQUIRED"]);
 // Config reason ของ INVALID_DEVICE_CREDENTIALS ที่ token ยังถูกต้อง (ไม่ล้าง token แต่ล็อกหน้าจอ)
 const DEVICE_LOCKED_REASONS = new Set(["inactive", "ip_not_allowed"]);
+// Config code เมื่อ IP + อุปกรณ์นี้ส่ง token ผิดครบกำหนด Backend พักไว้ตาม Retry-After (ไม่ล้าง token)
+const DEVICE_AUTH_LIMIT_CODE = "TOO_MANY_DEVICE_AUTH_ATTEMPTS";
 
 /* -------------------------------------- Error Helpers -------------------------------------- */
 
-// Class error กลางของทุก request (code ใช้เขียน logic, message ใช้แสดงผลเท่านั้น)
+// Class error กลางของทุก request (code ใช้เขียน logic, message ใช้แสดงผลเท่านั้น, retryAfterMs มาจาก header Retry-After)
 class ApiClientError extends Error {
     readonly status: number;
     readonly code: string;
     readonly body: ApiErrorResponse;
+    readonly retryAfterMs: number | null;
 
-    constructor(status: number, body: ApiErrorResponse) {
+    constructor(status: number, body: ApiErrorResponse, retryAfterMs: number | null = null) {
         super(body.message);
         this.name = "ApiClientError";
         this.status = status;
         this.code = body.code;
         this.body = body;
+        this.retryAfterMs = retryAfterMs;
     }
 
     // Function อ่านค่าเพิ่มเติมของ error เช่น reason, candidates, minimumAmount
@@ -58,6 +64,23 @@ function toApiErrorResponse(status: number, data: unknown): ApiErrorResponse {
 // Function ตรวจว่า error เป็น ApiClientError ที่มี code ตามที่ระบุ
 function hasErrorCode(error: unknown, ...codes: string[]): error is ApiClientError {
     return error instanceof ApiClientError && codes.includes(error.code);
+}
+
+// Function แปลง Retry-After (วินาที หรือ HTTP date) เป็น ms (ไม่มีหรืออ่านไม่ได้คืน null)
+function parseRetryAfterMs(value: string | null): number | null {
+    const raw = value?.trim();
+    if (!raw) return null;
+    if (/^\d+$/.test(raw)) return Number(raw) * 1000;
+
+    const date = Date.parse(raw);
+    return Number.isNaN(date) ? null : Math.max(0, date - Date.now());
+}
+
+// Function สร้าง error จาก response ที่ไม่สำเร็จ และพักการยืนยันตัวตนเมื่อได้ TOO_MANY_DEVICE_AUTH_ATTEMPTS (ใช้ทั้ง REST และ SSE)
+function createResponseError(response: Response, data: unknown): ApiClientError {
+    const error = new ApiClientError(response.status, toApiErrorResponse(response.status, data), parseRetryAfterMs(response.headers.get("Retry-After")));
+    if (error.code === DEVICE_AUTH_LIMIT_CODE) pauseDeviceAuth(error.retryAfterMs);
+    return error;
 }
 
 /* -------------------------------------- Helpers -------------------------------------- */
@@ -112,7 +135,7 @@ async function clientRequest<T>(path: string, options: ClientRequestOptions): Pr
     }
 
     if (!response.ok) {
-        throw new ApiClientError(response.status, toApiErrorResponse(response.status, data));
+        throw createResponseError(response, data);
     }
 
     return data as T;
@@ -126,7 +149,14 @@ function resetDeviceToActivation(): void {
     replaceLocation(ACTIVATE_PATH);
 }
 
-// Function พาอุปกรณ์ไปหน้า Activate / Maintenance ตาม code ของ error คืน true ถ้าเปลี่ยนหน้าแล้ว
+// Function ล็อกหน้าจอเมื่อ token ยังถูกแต่ใช้ไม่ได้ (reason inactive / ip_not_allowed) คืน true ถ้าเป็น reason นั้น
+function lockDeviceForReason(reason: unknown): boolean {
+    if (typeof reason !== "string" || !DEVICE_LOCKED_REASONS.has(reason)) return false;
+    replaceLocation(`${MAINTENANCE_PATH}?reason=${encodeURIComponent(reason)}`);
+    return true;
+}
+
+// Function พาอุปกรณ์ไปหน้า Activate / Maintenance ตาม code ของ error คืน true ถ้าเปลี่ยนหน้าแล้ว (429 ไม่เปลี่ยนหน้าและไม่ล้าง token)
 function handleDeviceAccessError(error: unknown): boolean {
     if (!(error instanceof ApiClientError) || !getStoredDeviceCredential()) return false;
 
@@ -136,14 +166,7 @@ function handleDeviceAccessError(error: unknown): boolean {
     }
 
     if (error.code === "INVALID_DEVICE_CREDENTIALS") {
-        const reason = error.detail("reason");
-
-        if (typeof reason === "string" && DEVICE_LOCKED_REASONS.has(reason)) {
-            replaceLocation(`${MAINTENANCE_PATH}?reason=${encodeURIComponent(reason)}`);
-            return true;
-        }
-
-        resetDeviceToActivation();
+        if (!lockDeviceForReason(error.detail("reason"))) resetDeviceToActivation();
         return true;
     }
 
@@ -153,6 +176,12 @@ function handleDeviceAccessError(error: unknown): boolean {
     }
 
     return false;
+}
+
+// Function จัดการ SSE device_revoked: Backend ส่งเฉพาะเมื่อ token ใช้ไม่ได้แล้ว จึงล้าง token ไปหน้า Activate
+// (ถ้าได้ reason inactive / ip_not_allowed ซึ่ง token ยังถูก ให้ล็อกหน้าจอแบบเดียวกับ HTTP 403)
+function handleDeviceRevoked(reason: string): void {
+    if (!lockDeviceForReason(reason)) resetDeviceToActivation();
 }
 
 /* -------------------------------------- Functions -------------------------------------- */
@@ -222,11 +251,11 @@ function simulateTestPayment(body: TestPaymentRequest): Promise<TestPaymentRespo
     return clientRequest<TestPaymentResponse>("/client/payments/test", { method: "POST", body });
 }
 
-// Function สร้าง URL ของ Payment WebSocket (wss://<host>/api/client/payments/ws) จาก origin ของ Backend
+// Function สร้าง URL ของ Payment WebSocket (wss://<host>/api/client/payments/ws) จาก origin ของ Backend หรือของหน้าเว็บเมื่อไม่ได้ตั้ง
 function getPaymentSocketUrl(): string {
-    const url = new URL(buildApiUrl("/client/payments/ws"));
+    const url = new URL(buildApiUrl("/client/payments/ws"), window.location.origin);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     return url.toString();
 }
 
-export { ACTIVATE_PATH, ApiClientError, MAINTENANCE_PATH, NETWORK_ERROR_CODE, activateDevice, buildApiUrl, createPromptPayCharge, getChargeQrImageUrl, getClientConfig, getPaymentMethods, getPaymentSocketUrl, getTransactionById, handleDeviceAccessError, hasErrorCode, isPlateLookupMultiple, lookupTransactionByPlate, postHeartbeat, recordEdcPayment, resetDeviceToActivation, simulateTestPayment, toApiErrorResponse };
+export { ACTIVATE_PATH, ApiClientError, DEVICE_AUTH_LIMIT_CODE, MAINTENANCE_PATH, NETWORK_ERROR_CODE, activateDevice, buildApiUrl, createPromptPayCharge, createResponseError, getChargeQrImageUrl, getClientConfig, getPaymentMethods, getPaymentSocketUrl, getTransactionById, handleDeviceAccessError, handleDeviceRevoked, hasErrorCode, isPlateLookupMultiple, lookupTransactionByPlate, parseRetryAfterMs, postHeartbeat, recordEdcPayment, resetDeviceToActivation, simulateTestPayment, toApiErrorResponse };

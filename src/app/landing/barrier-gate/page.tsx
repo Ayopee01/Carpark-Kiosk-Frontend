@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 // Import Lib
-import { resetDeviceToActivation } from "@/src/app/lib/api/client-api";
+import { handleDeviceRevoked } from "@/src/app/lib/api/client-api";
 import { openClientEventStream } from "@/src/app/lib/api/client-events";
 import { getStoredDeviceCredential, normalizeBarrierDirection } from "@/src/app/lib/device";
 import { barrierHardwareAdapter } from "@/src/app/lib/hardware-adapter";
@@ -216,9 +216,8 @@ function BarrierGatePage(): ReactElement {
     }, [gateState, resetCapture]);
 
     useEffect(() => {
-        const credential = getStoredDeviceCredential();
+        // deviceId ส่งทาง header x-device-id อย่างเดียว (ไม่ส่งซ้ำใน query)
         const query = {
-            deviceId: credential?.deviceId,
             gateId: subscription.gateId ?? undefined,
             direction: subscription.direction ?? undefined,
             cameraId: subscription.cameraId ?? undefined,
@@ -238,7 +237,7 @@ function BarrierGatePage(): ReactElement {
 
                 if (event.type === "device_revoked") {
                     closeStream();
-                    resetDeviceToActivation();
+                    handleDeviceRevoked(event.reason);
                 }
             },
         });

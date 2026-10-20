@@ -1,6 +1,7 @@
 // Import Lib
-import { handleDeviceAccessError, postHeartbeat } from "@/src/app/lib/api/client-api";
+import { MAINTENANCE_PATH, handleDeviceAccessError, postHeartbeat } from "@/src/app/lib/api/client-api";
 import { getStoredDeviceCredential, normalizeBarrierDirection, updateStoredDeviceCredential } from "@/src/app/lib/device";
+import { getDeviceAuthPauseRemainingMs } from "@/src/app/lib/device-auth-pause";
 // Import Types
 import type { HeartbeatResponse } from "@/src/app/type/api.type";
 
@@ -40,20 +41,50 @@ async function sendHeartbeat(): Promise<HeartbeatResponse | null> {
     }
 }
 
-// Function เริ่มส่ง heartbeat ทันทีและส่งซ้ำทุก HEARTBEAT_INTERVAL_MS คืน id ของ interval
-function startHeartbeat(onSuccess?: () => void): number {
+// Function เริ่มส่ง heartbeat ทันทีและส่งซ้ำทุก HEARTBEAT_INTERVAL_MS (ระหว่างถูกพักจาก 429 จะรอจนครบ Retry-After) คืน function หยุด
+// หน้า Maintenance ยังส่งต่อ เพื่อให้รู้ตอนที่ Admin ตั้งตู้กลับเป็น active หรือแก้ allowedIps แล้ว
+function startHeartbeat(onSuccess?: () => void): () => void {
+    let stopped = false;
+    let timer: number | null = null;
+
+    const schedule = (): void => {
+        if (stopped) return;
+        const pauseMs = getDeviceAuthPauseRemainingMs();
+        timer = window.setTimeout(run, pauseMs > 0 ? pauseMs : HEARTBEAT_INTERVAL_MS);
+    };
+
     const run = (): void => {
+        timer = null;
+        if (stopped) return;
+
+        if (getDeviceAuthPauseRemainingMs() > 0) {
+            schedule();
+            return;
+        }
+
         void sendHeartbeat()
             .then((heartbeat) => {
-                if (heartbeat) onSuccess?.();
+                if (heartbeat && !stopped) onSuccess?.();
             })
             .catch((error) => {
                 console.warn("Device heartbeat failed:", error);
-            });
+            })
+            .finally(schedule);
     };
 
     run();
-    return window.setInterval(run, HEARTBEAT_INTERVAL_MS);
+
+    return () => {
+        stopped = true;
+        if (timer !== null) window.clearTimeout(timer);
+    };
 }
 
-export { sendHeartbeat, startHeartbeat };
+// Function ออกจากหน้า Maintenance เมื่อ heartbeat ผ่าน (ตู้กลับมาใช้งานได้โดยไม่ต้อง Activate ใหม่)
+function leaveMaintenanceAfterHeartbeat(): void {
+    if (window.location.pathname === MAINTENANCE_PATH) {
+        window.location.replace("/");
+    }
+}
+
+export { leaveMaintenanceAfterHeartbeat, sendHeartbeat, startHeartbeat };

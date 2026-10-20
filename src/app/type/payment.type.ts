@@ -44,8 +44,11 @@ export type EdcAdapter = {
     charge: (request: { amount: Baht; terminalId: string }) => Promise<EdcApproval>;
 };
 
-// Type ขั้นตอนของ Popup EDC (retry = ส่งบันทึกซ้ำด้วย reference เดิมได้, void = ต้องให้พนักงาน void ที่เครื่อง)
-export type EdcStep = "idle" | "card" | "saving" | "retry" | "void" | "failed";
+// Type ขั้นตอนของ Popup EDC (retry = ส่งบันทึกซ้ำด้วย reference เดิมได้, void = ต้องให้พนักงาน void ที่เครื่อง, rejected = ผู้ให้บริการ EDC ไม่พบเลขอนุมัติ)
+export type EdcStep = "idle" | "card" | "saving" | "retry" | "void" | "rejected" | "failed";
+
+// Type ผลเมื่อบันทึกการชำระด้วยบัตรไม่สำเร็จ (limited = ถูกพักการยืนยันตัวตนชั่วคราว ส่งซ้ำด้วย reference เดิมได้)
+export type EdcSaveFailure = "retry" | "limited" | "rejected" | "void";
 
 /* -------------------------------------- Payment Component Types -------------------------------------- */
 

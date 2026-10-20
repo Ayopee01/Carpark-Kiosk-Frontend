@@ -262,6 +262,12 @@
     "notConnected": "The EDC terminal is not connected. Please choose another payment method.",
     "cardFailed": "The card was not approved. Please try again.",
     "saveNetworkFailed": "Could not record the payment because the system is unreachable. Please send again (approval code {reference}).",
-    "voidRequired": "The payment could not be recorded ({message}). Please ask staff to void the transaction on the EDC terminal (approval code {reference})."
+    "voidRequired": "The payment could not be recorded ({message}). Please ask staff to void the transaction on the EDC terminal (approval code {reference}).",
+    "saveLimited": "This device is temporarily paused, so the payment has not been recorded. Please send again when the wait is over (approval code {reference}).",
+    "approvalRejected": "The card payment could not be verified and has not been recorded. Please contact staff (approval code {reference})."
+  },
+  "DeviceAuthPause": {
+    "title": "Connection paused",
+    "description": "This device is temporarily paused. Reconnecting in {seconds} seconds."
   }
 }

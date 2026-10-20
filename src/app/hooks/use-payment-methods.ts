@@ -51,6 +51,7 @@ function usePaymentMethods(enabled: boolean): PaymentMethodsState {
     useEffect(() => {
         if (!enabled) return;
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- โหลดข้อมูลจาก API เมื่อ enabled ต้องตั้ง loading ทันที
         void reload();
 
         const handleSettingsUpdated = (): void => void reload();
