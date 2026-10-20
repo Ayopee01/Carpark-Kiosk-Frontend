@@ -1,0 +1,14 @@
+# Kiosk Frontend บน server (อยู่หลัง Nginx Proxy Manager ผ่าน npm-network)
+# KIOSK_IMAGE มาจาก GitHub Actions เช่น ghcr.io/<owner>/carpark-kiosk-frontend:<commit sha>
+# rollback: KIOSK_IMAGE=ghcr.io/<owner>/carpark-kiosk-frontend:<sha เดิม> docker compose up -d
+services:
+  kiosk-frontend:
+    image: ${KIOSK_IMAGE:?KIOSK_IMAGE is required}
+    container_name: smart-carpark-kiosk
+    restart: unless-stopped
+    networks:
+      - npm-network
+
+networks:
+  npm-network:
+    external: true

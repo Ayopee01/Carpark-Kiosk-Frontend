@@ -1,0 +1,285 @@
+.help-page {
+  background: var(--background);
+}
+
+.help-page__content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 100px;
+  padding: 36px 48px;
+}
+
+.help-page__hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  gap: 26px;
+}
+
+.help-page__title {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 45px;
+  letter-spacing: -0.9px;
+  color: var(--text-secondary);
+}
+
+.help-page__subtitle {
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: -1.2px;
+  text-transform: uppercase;
+  color: var(--theme);
+}
+
+.help-page__desc {
+  max-width: 533px;
+  max-height: 56px;
+  font-size: 18px;
+  line-height: 28px;
+  letter-spacing: 0px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.help-page__contact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 37px;
+}
+
+.help-page__contact-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.help-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 533px;
+  min-height: 104px;
+  padding: 24px;
+  border-radius: 48px;
+  background: var(--theme);
+  text-decoration: none;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.help-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.help-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  background: var(--background);
+}
+
+.help-card__icon svg {
+  color: var(--theme);
+  width: 18px;
+  height: 18px;
+}
+
+.help-card__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.help-card__text strong {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: 0px;
+  color: var(--text-primary);
+}
+
+.help-card__text small {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0px;
+  color: color-mix(in srgb, var(--text-primary) 50%, transparent);
+}
+
+/* tablet */
+@media (max-width: 1024px) {
+  .help-page__content {
+    padding: 32px 32px 48px;
+  }
+
+  .help-page__hero {
+    gap: 20px;
+  }
+
+  .help-page__title {
+    font-size: 32px;
+    line-height: 40px;
+  }
+
+  .help-page__subtitle {
+    font-size: 20px;
+    line-height: 24px;
+    letter-spacing: -0.8px;
+  }
+
+  .help-page__desc {
+    font-size: 16px;
+    line-height: 26px;
+    max-width: 500px;
+  }
+
+  .help-page__contact {
+    gap: 28px;
+  }
+
+  .help-page__contact-title {
+    font-size: 22px;
+    line-height: 30px;
+  }
+
+  .help-card {
+    min-height: 96px;
+    padding: 20px 22px;
+    border-radius: 36px;
+  }
+}
+
+/* mobile */
+@media (max-width: 768px) {
+  .help-page__content {
+    gap: 100px;
+    padding: 24px 20px 36px;
+  }
+
+  .help-page__hero {
+    gap: 16px;
+  }
+
+  .help-page__title {
+    font-size: 28px;
+    line-height: 34px;
+    letter-spacing: -0.6px;
+  }
+
+  .help-page__subtitle {
+    font-size: 18px;
+    line-height: 22px;
+    letter-spacing: -0.5px;
+  }
+
+  .help-page__desc {
+    max-width: 100%;
+    font-size: 15px;
+    line-height: 24px;
+  }
+
+  .help-page__contact {
+    gap: 20px;
+  }
+
+  .help-page__contact-title {
+    font-size: 20px;
+    line-height: 28px;
+    letter-spacing: -0.4px;
+  }
+
+  .help-card {
+    gap: 16px;
+    min-height: 88px;
+    padding: 18px 20px;
+    border-radius: 28px;
+  }
+
+  .help-card__icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .help-card__icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .help-card__text strong {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .help-card__text small {
+    font-size: 13px;
+    line-height: 18px;
+  }
+}
+
+/* small mobile */
+@media (max-width: 480px) {
+  .help-page__content {
+    gap: 80px;
+    padding: 20px 16px 28px;
+  }
+
+  .help-page__title {
+    font-size: 24px;
+    line-height: 30px;
+  }
+
+  .help-page__subtitle {
+    font-size: 16px;
+    line-height: 20px;
+  }
+
+  .help-page__desc {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .help-page__contact-title {
+    font-size: 18px;
+    line-height: 26px;
+  }
+
+  .help-card {
+    gap: 14px;
+    min-height: 70px;
+    padding: 16px 18px;
+    border-radius: 24px;
+  }
+
+  .help-card__icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .help-card__icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .help-card__text strong {
+    font-size: 15px;
+    line-height: 22px;
+  }
+
+  .help-card__text small {
+    font-size: 12px;
+    line-height: 17px;
+  }
+}

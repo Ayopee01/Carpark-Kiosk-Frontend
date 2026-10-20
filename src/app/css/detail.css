@@ -1,0 +1,751 @@
+.detail-page {
+    background: var(--background);
+}
+
+.detail-page__content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 100px;
+    padding: 36px 48px;
+}
+
+.detail-page__header {
+    width: 100%;
+    text-align: center;
+}
+
+.detail-page__header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 36px;
+    letter-spacing: 0px;
+    color: var(--text-primary);
+}
+
+.detail-page__header p {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 36px;
+    letter-spacing: 0px;
+    color: var(--text-primary);
+}
+
+.detail-plate {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 30px;
+}
+
+.detail-plate-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 160px;
+    max-width: 557px;
+    margin-top: 30px;
+    padding: 24px;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--theme) 50%, transparent);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--theme);
+    gap: 12px;
+}
+
+.detail-plate-card__label {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    letter-spacing: 0px;
+    color: var(--text-disabled);
+}
+
+.detail-plate-card__input {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    border-radius: var(--radius-full);
+    background: var(--background);
+    padding: 4px;
+    position: relative;
+}
+
+.detail-plate-card__value {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 32px;
+    letter-spacing: 2.4px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.detail-plate-card__edit {
+    position: absolute;
+    right: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 43px;
+    height: 40px;
+    color: var(--icon-pen);
+    flex-shrink: 0;
+}
+
+.detail-plate-card__edit--done {
+    color: var(--icon-check);
+}
+
+.detail-section-title {
+    width: 100%;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 28px;
+    letter-spacing: 0px;
+    color: var(--text-secondary);
+}
+
+.detail-info-grid {
+    width: 100%;
+    height: 253px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.detail-error {
+    width: 100%;
+    text-align: center;
+    font-size: 16px;
+    line-height: 28px;
+    color: var(--text-warning-error);
+}
+
+.detail-error--success {
+    color: var(--icon-check);
+}
+
+.detail-info-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 32px;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--theme) 50%, transparent);
+}
+
+.detail-info-card__label {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 28px;
+    letter-spacing: 0px;
+    color: var(--text-primary);
+}
+
+.detail-info-card strong {
+    margin-top: 8px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0px;
+    color: var(--text-primary);
+}
+
+.detail-info-card:nth-child(1) strong,
+.detail-info-card:nth-child(2) strong,
+.detail-info-card:nth-child(3) strong {
+    font-size: 20px;
+}
+
+.detail-info-card--fee {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: var(--radius-full);
+}
+
+.detail-info-card__fee-left {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-info-card__danger {
+    color: #FF0000 !important;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 28px;
+    letter-spacing: 0px;
+}
+
+.detail-fee-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    border-radius: var(--radius-full);
+    background: var(--background);
+    padding: 16px;
+    width: 100%;
+    height: 74.5px;
+    max-width: 164px;
+}
+
+.detail-fee-box span {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 15px;
+    letter-spacing: 0px;
+    font-family: Inter;
+    text-align: center;
+    vertical-align: middle;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--text-primary) 50%, transparent);
+}
+
+.detail-fee-box strong {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 28px;
+    letter-spacing: 0px;
+    text-align: center;
+    vertical-align: middle;
+    color: var(--text-warning-error);
+}
+
+.payment-panel {
+    padding: 0 30px;
+}
+
+.payment-panel__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 25px;
+    width: 100%;
+    border: 1px solid var(--theme);
+    border-radius: var(--radius-full);
+    padding: 30px;
+}
+
+.payment-panel h2 {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 36px;
+    letter-spacing: 0px;
+    color: var(--text-primary);
+}
+
+.payment-panel__note {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 36px;
+    letter-spacing: 0px;
+    color: var(--text-primary);
+}
+
+/* ปุ่ม Dev Test (แสดงเฉพาะเมื่อเปิด NEXT_PUBLIC_ENABLE_PAYMENT_TEST และไม่ใช่ production) */
+.payment-panel__dev-test {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px dashed var(--text-primary);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.payment-panel__dev-test:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.payment-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    max-width: 290px;
+    height: 268px;
+    padding: 32px;
+    border-radius: var(--radius-full);
+    background: var(--theme);
+
+}
+
+.payment-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.promptpay-logo__img {
+    background: var(--background);
+    border-radius: 16px;
+    object-fit: contain;
+    width: 64px;
+    height: 64px;
+    padding: 7px;
+}
+
+.payment-card__tag {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.payment-card__tag span {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 1.2px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    color: var(--text-inverse);
+}
+
+.payment-card__tag i {
+    width: 48px;
+    height: 6px;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--text-disabled);
+
+}
+
+.payment-card__body {
+    margin-top: 28px;
+}
+
+.payment-card__body h3 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: 0px;
+    color: var(--text-secondary);
+}
+
+.payment-card__body p {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    letter-spacing: 0px;
+    color: var(--text-muted);
+}
+
+.payment-card__button {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    margin-top: 28px;
+}
+
+.payment-card__button button {
+    color: var(--background);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 20px;
+    letter-spacing: 0px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.payment-card__button svg {
+    width: 5.55px;
+    height: 9px;
+    color: var(--text-disabled);
+    cursor: pointer;
+}
+
+.payment-panel__help {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.payment-panel__help span {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    letter-spacing: 0px;
+    text-align: center;
+    vertical-align: middle;
+    color: var(--text-muted);
+}
+
+.contact_staff {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-disabled);
+    text-decoration: none;
+}
+
+.contact_staff svg {
+    width: 20px;
+    height: 18px;
+}
+
+.contact_staff span {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 24px;
+    letter-spacing: 0px;
+    vertical-align: middle;
+    text-align: center;
+    color: var(--text-disabled);
+}
+
+/* responsive */
+@media (max-width: 1024px) {
+    .payment-panel h2 {
+        font-size: 24px;
+    }
+
+    .payment-panel__note {
+        font-size: 20px;
+    }
+
+    .detail-plate {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+        padding: 10px;
+    }
+
+    .detail-page__content {
+        padding: 32px 32px 64px;
+        gap: 64px;
+    }
+
+    .detail-page__header h1 {
+        font-size: 32px;
+    }
+
+    .detail-page__header p {
+        font-size: 22px;
+    }
+
+    .payment-panel {
+        padding: 0 16px;
+    }
+}
+
+@media (max-width: 900px) {
+    .detail-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-info-grid {
+        height: 100%;
+    }
+
+    .payment-panel h2 {
+        font-size: 20px;
+    }
+
+    .payment-panel__note {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 768px) {
+    .detail-page__content {
+        padding: 28px 20px 56px;
+        gap: 48px;
+    }
+
+    .detail-page__header h1 {
+        font-size: 28px;
+    }
+
+    .detail-page__header p {
+        font-size: 18px;
+    }
+
+    .detail-plate-card {
+        margin-top: 20px;
+        padding: 20px;
+    }
+
+    .detail-plate-card__input {
+        min-height: 72px;
+        padding: 8px 64px 8px 16px;
+    }
+
+    .detail-plate-card__value {
+        font-size: 22px;
+        letter-spacing: 1.4px;
+    }
+
+    .detail-plate-card__edit {
+        right: 16px;
+        width: 40px;
+        height: 40px;
+    }
+
+    .detail-section-title {
+        font-size: 17px;
+    }
+
+    .detail-info-card {
+        padding: 20px;
+        min-height: 108px;
+    }
+
+    .detail-info-card:nth-child(1) strong,
+    .detail-info-card:nth-child(2) strong,
+    .detail-info-card:nth-child(3) strong,
+    .detail-info-card__danger {
+        font-size: 18px;
+    }
+
+    .detail-fee-box {
+        max-width: 150px;
+        min-height: 72px;
+    }
+
+    .payment-panel {
+        padding: 0;
+    }
+
+    .payment-panel__content {
+        padding: 24px 20px;
+        gap: 10px;
+    }
+
+    .payment-panel h2 {
+        font-size: 28px;
+    }
+
+    .payment-panel__note {
+        font-size: 15px;
+    }
+
+    .payment-card {
+        max-width: 290px;
+        padding: 24px;
+    }
+}
+
+@media (max-width: 560px) {
+    .detail-page__content {
+        padding: 24px 16px 48px;
+        gap: 36px;
+    }
+
+    .detail-page__header h1 {
+        font-size: 24px;
+    }
+
+    .detail-page__header p {
+        font-size: 16px;
+    }
+
+    .detail-info-card {
+        min-height: unset;
+        padding: 18px;
+    }
+
+    .detail-info-card--fee {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    .detail-fee-box {
+        max-width: none;
+        width: 100%;
+    }
+
+    .payment-panel__content {
+        padding: 20px 16px;
+    }
+
+    .payment-panel h2 {
+        font-size: 24px;
+    }
+
+    .payment-panel__note {
+        font-size: 14px;
+    }
+
+    .payment-card {
+        padding: 20px;
+    }
+
+    .payment-card__body {
+        margin-top: 20px;
+    }
+
+    .payment-card__button {
+        margin-top: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .detail-page__content {
+        padding: 20px 12px 40px;
+        gap: 28px;
+    }
+
+    .detail-page__header h1 {
+        font-size: 22px;
+    }
+
+    .detail-page__header p {
+        font-size: 14px;
+        line-height: 1.45;
+    }
+
+    .detail-plate-card {
+        padding: 16px;
+        margin-top: 16px;
+    }
+
+    .detail-plate-card__label {
+        font-size: 13px;
+    }
+
+    .detail-plate-card__input {
+        min-height: 64px;
+        padding: 8px 52px 8px 12px;
+    }
+
+    .detail-plate-card__value {
+        font-size: 18px;
+        letter-spacing: 0.8px;
+        line-height: 1.4;
+    }
+
+    .detail-plate-card__edit {
+        right: 12px;
+        width: 36px;
+        height: 36px;
+    }
+
+    .detail-section-title {
+        font-size: 15px;
+    }
+
+    .detail-info-card__label {
+        font-size: 13px;
+    }
+
+    .detail-info-card:nth-child(1) strong,
+    .detail-info-card:nth-child(2) strong,
+    .detail-info-card:nth-child(3) strong {
+        font-size: 16px;
+    }
+
+    .detail-info-card__danger {
+        font-size: 17px !important;
+    }
+
+    .detail-fee-box span {
+        font-size: 12px;
+    }
+
+    .detail-fee-box strong {
+        font-size: 18px;
+    }
+
+    .payment-panel h2 {
+        font-size: 20px;
+    }
+
+    .payment-panel__note {
+        font-size: 12px;
+    }
+
+    .promptpay-logo__img {
+        width: 56px;
+        height: 56px;
+    }
+
+    .payment-card__body h3 {
+        font-size: 20px;
+    }
+
+    .payment-card__body p {
+        font-size: 13px;
+    }
+
+    .payment-panel__help span {
+        font-size: 13px;
+    }
+
+    .contact_staff span {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 360px) {
+    .detail-page__content {
+        padding: 18px 10px 36px;
+        gap: 24px;
+    }
+
+    .detail-page__header h1 {
+        font-size: 20px;
+    }
+
+    .detail-page__header p {
+        font-size: 13px;
+    }
+
+    .detail-plate-card {
+        padding: 14px;
+    }
+
+    .detail-plate-card__input {
+        min-height: 60px;
+    }
+
+    .detail-plate-card__value {
+        font-size: 16px;
+        letter-spacing: 0.4px;
+    }
+
+    .detail-info-card {
+        padding: 16px;
+    }
+
+    .detail-info-card:nth-child(1) strong,
+    .detail-info-card:nth-child(2) strong,
+    .detail-info-card:nth-child(3) strong,
+    .detail-info-card__danger {
+        font-size: 15px !important;
+    }
+
+    .payment-panel__content {
+        padding: 16px 12px;
+    }
+
+    .payment-card {
+        padding: 18px 16px;
+    }
+
+    .payment-card__body h3 {
+        font-size: 18px;
+    }
+
+    .payment-panel__note,
+    .payment-panel__help span {
+        font-size: 8px;
+    }
+
+    .contact_staff span {
+        font-size: 13px;
+    }
+}
