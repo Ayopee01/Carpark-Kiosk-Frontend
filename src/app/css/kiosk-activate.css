@@ -1,0 +1,302 @@
+.kiosk-activate-page {
+    min-height: 100vh;
+    background: var(--background);
+    color: var(--text-primary);
+}
+
+.kiosk-activate-page__content {
+    min-height: 100vh;
+    padding: 24px 38px 48px;
+}
+
+.kiosk-activate-page__back {
+    width: 100%;
+}
+
+.kiosk-activate {
+    display: flex;
+    min-height: calc(100vh - 96px);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 0;
+}
+
+.kiosk-activate__icon {
+    display: flex;
+    width: 64px;
+    height: 64px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    background: var(--text-primary);
+    color: var(--background);
+    box-shadow: 0 16px 34px color-mix(in srgb, var(--text-primary) 18%, transparent);
+}
+
+.kiosk-activate__header {
+    margin-top: 28px;
+    text-align: center;
+}
+
+.kiosk-activate__header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.8px;
+    color: var(--text-primary);
+}
+
+.kiosk-activate__header p {
+    margin: 8px 0 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.kiosk-activate__form-area {
+    margin-top: 84px;
+    width: min(460px, 100%);
+}
+
+.kiosk-code-card {
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--theme) 88%, var(--foreground));
+    border-radius: 28px;
+    background: color-mix(in srgb, var(--theme) 48%, var(--background));
+    padding: 22px 20px 20px;
+    box-shadow: 0 18px 40px color-mix(in srgb, var(--theme) 28%, transparent);
+}
+
+.kiosk-code-card__label {
+    display: block;
+    margin-bottom: 10px;
+    padding-left: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-disabled);
+}
+
+.kiosk-code-card__input-box {
+    display: flex;
+    min-height: 118px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 24px;
+    background: var(--background);
+    padding: 18px;
+    box-shadow: var(--shadow-soft);
+}
+
+.kiosk-code-card__input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    text-align: center;
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 12px;
+    color: var(--text-primary);
+}
+
+.kiosk-code-card__input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.kiosk-code-card__input.is-filled {
+    color: var(--text-primary);
+}
+
+.kiosk-activate__message {
+    margin: 14px 0 0;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.kiosk-activate__message--error {
+    color: var(--text-warning-error);
+}
+
+.kiosk-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 14px;
+    border-radius: 16px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.kiosk-alert svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.kiosk-alert--success {
+    border: 1px solid color-mix(in srgb, var(--icon-check) 35%, var(--background));
+    background: color-mix(in srgb, var(--icon-check) 10%, var(--background));
+    color: color-mix(in srgb, var(--icon-check) 70%, var(--foreground));
+}
+
+.kiosk-alert--error {
+    border: 1px solid color-mix(in srgb, var(--text-warning-error) 25%, var(--background));
+    background: color-mix(in srgb, var(--text-warning-error) 8%, var(--background));
+    color: var(--text-warning-error);
+}
+
+.kiosk-keyboard {
+    display: grid;
+    width: min(520px, calc(100vw - 32px));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 72px;
+    border-radius: 24px;
+    background: var(--keyboard);
+    padding: 16px;
+}
+
+.kiosk-keyboard__key {
+    display: flex;
+    height: 64px;
+    min-width: 0;
+    cursor: pointer;
+    user-select: none;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--background);
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: var(--shadow-soft);
+    transition:
+        transform 0.16s ease,
+        background-color 0.16s ease,
+        opacity 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+.kiosk-keyboard__key:hover:not(:disabled) {
+    background: var(--bg-hover-lang-btn);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.kiosk-keyboard__key:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.kiosk-keyboard__key:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.kiosk-keyboard__key--delete {
+    background: var(--keyboard-delete);
+    color: var(--text-primary);
+}
+
+.kiosk-keyboard__key--delete:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--keyboard-delete) 88%, var(--text-primary));
+}
+
+.kiosk-keyboard__key--enter {
+    background: var(--theme);
+    color: var(--keyboard-text-confirm);
+    font-size: 16px;
+    letter-spacing: 0.2px;
+}
+
+.kiosk-keyboard__key--enter:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--theme) 88%, var(--text-primary));
+}
+
+.kiosk-keyboard__loader {
+    animation: kiosk-spin 0.8s linear infinite;
+}
+
+.kiosk-activate__footer {
+    margin: 24px 0 0;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+}
+
+@keyframes kiosk-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 768px) {
+    .kiosk-activate-page__content {
+        padding: 20px 18px 36px;
+    }
+
+    .kiosk-activate {
+        justify-content: flex-start;
+        padding-top: 48px;
+    }
+
+    .kiosk-activate__form-area {
+        margin-top: 52px;
+    }
+
+    .kiosk-keyboard {
+        margin-top: 42px;
+    }
+}
+
+@media (max-width: 480px) {
+    .kiosk-activate__header h1 {
+        font-size: 24px;
+    }
+
+    .kiosk-activate__header p {
+        font-size: 14px;
+    }
+
+    .kiosk-code-card {
+        border-radius: 24px;
+        padding: 18px;
+    }
+
+    .kiosk-code-card__input-box {
+        min-height: 104px;
+        border-radius: 20px;
+    }
+
+    .kiosk-code-card__input {
+        font-size: 28px;
+        letter-spacing: 9px;
+    }
+
+    .kiosk-keyboard {
+        gap: 10px;
+        border-radius: 20px;
+        padding: 12px;
+    }
+
+    .kiosk-keyboard__key {
+        height: 58px;
+        font-size: 18px;
+    }
+
+    .kiosk-keyboard__key--enter {
+        font-size: 15px;
+    }
+}

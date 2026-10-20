@@ -1,0 +1,132 @@
+.plate-candidate-popup__overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: color-mix(in srgb, var(--text-primary) 70%, transparent);
+}
+
+.plate-candidate-popup {
+    width: min(100%, 520px);
+    max-height: min(90vh, 900px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 32px;
+    border-radius: 48px;
+    background: var(--background);
+}
+
+.plate-candidate-popup__top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.plate-candidate-popup__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: var(--theme);
+}
+
+.plate-candidate-popup__card {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 0;
+    padding: 28px;
+    border: 1px solid var(--theme);
+    border-radius: 36px;
+    box-shadow: var(--shadow-soft);
+}
+
+.plate-candidate-popup__card h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 28px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.plate-candidate-popup__card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 16px;
+    line-height: 24px;
+    text-align: center;
+}
+
+.plate-candidate-popup__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.plate-candidate-popup__item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 18px 20px;
+    border: 1px solid color-mix(in srgb, var(--theme) 55%, var(--background));
+    border-radius: 24px;
+    background: color-mix(in srgb, var(--theme) 12%, var(--background));
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.plate-candidate-popup__item:hover {
+    background: color-mix(in srgb, var(--theme) 20%, var(--background));
+}
+
+.plate-candidate-popup__plate {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.plate-candidate-popup__meta {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.plate-candidate-popup__cancel {
+    width: 100%;
+    min-height: 56px;
+    border: none;
+    border-radius: 9999px;
+    background: var(--theme);
+    color: color-mix(in srgb, var(--text-primary) 55%, transparent);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+@media (max-width: 620px) {
+    .plate-candidate-popup {
+        padding: 20px;
+        border-radius: 32px;
+    }
+
+    .plate-candidate-popup__card {
+        padding: 20px;
+        border-radius: 28px;
+    }
+
+    .plate-candidate-popup__card h2 {
+        font-size: 22px;
+    }
+}

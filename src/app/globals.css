@@ -1,0 +1,69 @@
+:root {
+  /* base-colors */
+  --background: #FFFFFF;
+  --foreground: #171717;
+
+  /* theme-colors */
+  --theme: #FFD54F;
+
+  /* logo-colors */
+  --logo: #96CCFF;
+
+  /* navbar-colors */
+  --text-menu-nav: #4A90E2;
+  --bg-menu-nav: #F3F3F3;
+
+  /* back-button-colors */
+  --bg-hover-back-btn: #F2C74414;
+  --bg-active-back-btn: #F2C74429;
+
+  /* lang-button-colors */
+  --bg-hover-lang-btn: #f8fafc;
+  --bg-active-lang-btn: #e8f1ff;
+
+  /* icon-colors */
+  --icon-check: #64D300;
+  --icon-pen: #808080;
+  --keyboard: #ECF1F6;
+  --keyboard-delete: #D7DEE3;
+  --keyboard-confirm: var(--theme);
+  --keyboard-text-confirm: #5C4900;
+
+  /* base-text-colors */
+  --text-primary: #0D1B2A;
+  --text-secondary: #2A2F32;
+  --text-tertiary: #999999;
+  --text-muted: #575C60;
+  --text-disabled: #705900;
+  --text-inverse: #73777B;
+  --text-warning-error: #FF0000;
+  --border-soft: #EAE9EC;
+  --shadow-soft: 0px 1px 2px 0px #0000000D;
+
+  /* base-dimensions */
+  --radius-full: 25px;
+  --w-icon-dropdown: 7px;
+  --h-icon-dropdown: 4.32px;
+}
+
+/* ------------------------------- Global Style ------------------------------- */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-inter), var(--font-thai), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}

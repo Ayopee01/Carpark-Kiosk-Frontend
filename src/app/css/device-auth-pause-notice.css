@@ -1,0 +1,28 @@
+.device-auth-pause-notice {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: min(560px, calc(100% - 32px));
+  padding: 16px 24px;
+  border-radius: var(--radius-full);
+  background: var(--text-primary);
+  color: var(--background);
+  box-shadow: var(--shadow-soft);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.device-auth-pause-notice strong {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.device-auth-pause-notice span {
+  font-size: 14px;
+  line-height: 22px;
+}
