@@ -1,0 +1,274 @@
+// Import Library
+import ky, { isHTTPError } from "ky";
+import { z } from "zod";
+// Import Lib
+import { clearDeviceStorage, getDeviceAuthHeaders, getStoredDeviceCredential } from "@/src/app/lib/device";
+import { pauseDeviceAuth } from "@/src/app/lib/device-auth-pause";
+// Import Types
+import type { ActivateRequest, ActivateResponse, ApiErrorResponse, ClientConfigResponse, ClientPaymentMethodsResponse, ClientPlateLookupMultiple, ClientRequestOptions, ClientTransaction, ClientTransactionLookupResponse, CreateChargeRequest, CreateChargeResponse, EdcPaymentRequest, EdcPaymentResponse, HeartbeatRequest, HeartbeatResponse, SimulatePaidRequest, SimulatePaidResponse } from "@/src/app/type/api.type";
+
+/* -------------------------------------- Config -------------------------------------- */
+
+// Config origin ของ Backend เช่น https://api.<domain> (ไม่มี /api และ / ต่อท้าย ฝังตอน build)
+// ว่าง = เรียก /api/client ของโดเมนเดียวกับหน้าเว็บ (ใช้ได้เมื่อ Nginx ของโดเมน Kiosk ส่งต่อให้ Backend)
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").trim().replace(/\/+$/, "");
+// Config prefix ของทุกเส้นใน Backend
+const API_PREFIX = "/api";
+// Config code ที่ frontend ใช้เมื่อ request ไม่ถึง Backend (network หรือ CORS)
+const NETWORK_ERROR_CODE = "NETWORK_ERROR";
+// Config code ที่ frontend ใช้เมื่อ Backend ตอบสำเร็จแต่ body ไม่ใช่ JSON
+const INVALID_RESPONSE_CODE = "INVALID_BACKEND_RESPONSE";
+// Config หน้าที่ใช้เมื่อต้องกรอก activation code ใหม่
+const ACTIVATE_PATH = "/landing/activate";
+// Config หน้าล็อกเมื่ออุปกรณ์ปิดปรับปรุงหรือใช้งานไม่ได้ชั่วคราว
+const MAINTENANCE_PATH = "/landing/maintenance";
+// Config code ที่แปลว่า token ของอุปกรณ์ใช้ไม่ได้แล้ว ต้องกรอก activation code ใหม่จาก Admin
+const DEVICE_REACTIVATE_CODES = new Set(["INVALID_DEVICE", "UNAUTHORIZED_DEVICE", "DEVICE_CREDENTIALS_REQUIRED"]);
+// Config reason ของ INVALID_DEVICE_CREDENTIALS ที่ token ยังถูกต้อง (ไม่ล้าง token แต่ล็อกหน้าจอ)
+const DEVICE_LOCKED_REASONS = new Set(["inactive", "ip_not_allowed"]);
+// Config code เมื่อ IP + อุปกรณ์นี้ส่ง token ผิดครบกำหนด Backend พักไว้ตาม Retry-After (ไม่ล้าง token)
+const DEVICE_AUTH_LIMIT_CODE = "TOO_MANY_DEVICE_AUTH_ATTEMPTS";
+// Config HTTP client ของ Backend (ไม่ส่ง cookie เพราะ CORS ของ client ไม่รับ credentials, ไม่ retry / timeout เอง เพื่อให้ผู้เรียกตัดสินการส่งซ้ำ)
+const httpClient = ky.create({ retry: 0, timeout: false, cache: "no-store", credentials: "omit" });
+
+/* -------------------------------------- Schemas -------------------------------------- */
+
+// Schema body ของ error (คง field อื่นไว้ให้ detail() อ่าน, ไม่ใช่ object ถือเป็น object ว่าง)
+const apiErrorBodySchema = z
+    .looseObject({
+        message: z.string().optional().catch(undefined),
+        code: z.string().optional().catch(undefined),
+    })
+    .catch({});
+
+/* -------------------------------------- Error Helpers -------------------------------------- */
+
+// Class error กลางของทุก request (code ใช้เขียน logic, message ใช้แสดงผลเท่านั้น, retryAfterMs มาจาก header Retry-After)
+class ApiClientError extends Error {
+    readonly status: number;
+    readonly code: string;
+    readonly body: ApiErrorResponse;
+    readonly retryAfterMs: number | null;
+
+    constructor(status: number, body: ApiErrorResponse, retryAfterMs: number | null = null) {
+        super(body.message);
+        this.name = "ApiClientError";
+        this.status = status;
+        this.code = body.code;
+        this.body = body;
+        this.retryAfterMs = retryAfterMs;
+    }
+
+    // Function อ่านค่าเพิ่มเติมของ error เช่น reason, candidates, minimumAmount
+    detail(key: string): unknown {
+        return this.body[key];
+    }
+}
+
+// Function แปลง body ของ error เป็น ApiErrorResponse (ไม่มี code ใช้ HTTP_<status>)
+function toApiErrorResponse(status: number, data: unknown): ApiErrorResponse {
+    const body = apiErrorBodySchema.parse(data);
+
+    return {
+        ...body,
+        message: body.message ?? `Request failed (${status})`,
+        code: body.code ?? `HTTP_${status}`,
+    };
+}
+
+// Function ตรวจว่า error เป็น ApiClientError ที่มี code ตามที่ระบุ
+function hasErrorCode(error: unknown, ...codes: string[]): error is ApiClientError {
+    return error instanceof ApiClientError && codes.includes(error.code);
+}
+
+// Function แปลง Retry-After (วินาที หรือ HTTP date) เป็น ms (ไม่มีหรืออ่านไม่ได้คืน null)
+function parseRetryAfterMs(value: string | null): number | null {
+    const raw = value?.trim();
+    if (!raw) return null;
+    if (/^\d+$/.test(raw)) return Number(raw) * 1000;
+
+    const date = Date.parse(raw);
+    return Number.isNaN(date) ? null : Math.max(0, date - Date.now());
+}
+
+// Function สร้าง error จาก response ที่ไม่สำเร็จ และพักการยืนยันตัวตนเมื่อได้ TOO_MANY_DEVICE_AUTH_ATTEMPTS
+function createResponseError(response: Response, data: unknown): ApiClientError {
+    const error = new ApiClientError(response.status, toApiErrorResponse(response.status, data), parseRetryAfterMs(response.headers.get("Retry-After")));
+    if (error.code === DEVICE_AUTH_LIMIT_CODE) pauseDeviceAuth(error.retryAfterMs);
+    return error;
+}
+
+/* -------------------------------------- Helpers -------------------------------------- */
+
+// Function เปลี่ยนหน้าแบบ reload (ไม่ reload ซ้ำถ้าอยู่หน้านั้นแล้ว)
+function replaceLocation(path: string): void {
+    const [pathname] = path.split("?");
+    if (window.location.pathname === pathname) return;
+    window.location.replace(path);
+}
+
+// Function สร้าง URL เต็มของ Backend จาก path ใต้ /api เช่น "/client/config"
+function buildApiUrl(path: string): string {
+    return `${API_BASE_URL}${API_PREFIX}${path}`;
+}
+
+// Function สร้าง error เมื่อ Backend ตอบสำเร็จแต่อ่าน body ไม่ได้ (ถือเป็น 502 เพื่อให้ผู้เรียกส่งซ้ำได้ เช่น EDC ส่งซ้ำด้วย reference เดิม)
+function createInvalidResponseError(): ApiClientError {
+    return new ApiClientError(502, { message: "Backend returned an invalid response", code: INVALID_RESPONSE_CODE });
+}
+
+// Function แปลง error ของ ky เป็น ApiClientError (HTTP error ใช้ body ที่ ky อ่านไว้แล้ว, JSON เสียเป็น 502, นอกนั้นถือว่าไม่ถึง Backend)
+function toApiClientError(error: unknown): ApiClientError {
+    if (isHTTPError(error)) return createResponseError(error.response, error.data);
+    if (error instanceof SyntaxError) return createInvalidResponseError();
+
+    return new ApiClientError(0, {
+        message: error instanceof Error ? error.message : "Network error",
+        code: NETWORK_ERROR_CODE,
+    });
+}
+
+// Function เรียก Backend ตรงพร้อม device headers (ถ้ามี) ผ่าน ky
+async function clientRequest<T>(path: string, { method, query, body, headers }: ClientRequestOptions): Promise<T> {
+    let data: unknown;
+
+    try {
+        data = await httpClient(buildApiUrl(path), {
+            method,
+            baseUrl: window.location.origin,
+            searchParams: query,
+            json: body,
+            headers: { ...getDeviceAuthHeaders(), ...headers },
+        }).json();
+    } catch (error) {
+        throw toApiClientError(error);
+    }
+
+    if (data === null || data === undefined || data === "") throw createInvalidResponseError();
+
+    return data as T;
+}
+
+/* -------------------------------------- Device Access -------------------------------------- */
+
+// Function ล้าง token แล้วไปหน้า Activate (ห้ามสร้างอุปกรณ์ใหม่ ต้องใช้ code ใหม่จาก Admin)
+function resetDeviceToActivation(): void {
+    clearDeviceStorage();
+    replaceLocation(ACTIVATE_PATH);
+}
+
+// Function ล็อกหน้าจอเมื่อ token ยังถูกแต่ใช้ไม่ได้ (reason inactive / ip_not_allowed) คืน true ถ้าเป็น reason นั้น
+function lockDeviceForReason(reason: unknown): boolean {
+    if (typeof reason !== "string" || !DEVICE_LOCKED_REASONS.has(reason)) return false;
+    replaceLocation(`${MAINTENANCE_PATH}?reason=${encodeURIComponent(reason)}`);
+    return true;
+}
+
+// Function พาอุปกรณ์ไปหน้า Activate / Maintenance ตาม code ของ error คืน true ถ้าเปลี่ยนหน้าแล้ว (429 ไม่เปลี่ยนหน้าและไม่ล้าง token)
+function handleDeviceAccessError(error: unknown): boolean {
+    if (!(error instanceof ApiClientError) || !getStoredDeviceCredential()) return false;
+
+    if (error.code === "DEVICE_MAINTENANCE") {
+        replaceLocation(MAINTENANCE_PATH);
+        return true;
+    }
+
+    if (error.code === "INVALID_DEVICE_CREDENTIALS") {
+        if (!lockDeviceForReason(error.detail("reason"))) resetDeviceToActivation();
+        return true;
+    }
+
+    if (DEVICE_REACTIVATE_CODES.has(error.code)) {
+        resetDeviceToActivation();
+        return true;
+    }
+
+    return false;
+}
+
+// Function จัดการ Socket.IO device:revoked: Backend ส่งเฉพาะเมื่อ token ใช้ไม่ได้แล้ว จึงล้าง token ไปหน้า Activate
+// (ถ้าได้ reason inactive / ip_not_allowed ซึ่ง token ยังถูก ให้ล็อกหน้าจอแบบเดียวกับ HTTP 403)
+function handleDeviceRevoked(reason: string): void {
+    if (!lockDeviceForReason(reason)) resetDeviceToActivation();
+}
+
+/* -------------------------------------- Functions -------------------------------------- */
+
+// Function ดึง theme ของ GET /client/config (เรียกได้ก่อน Activate) และต่อ host ของ API ให้ logoUrl ที่เป็น /uploads/...
+async function getClientConfig(): Promise<ClientConfigResponse> {
+    const config = await clientRequest<ClientConfigResponse>("/client/config", { method: "GET" });
+    const { logoUrl } = config.theme;
+
+    if (typeof logoUrl === "string" && logoUrl.startsWith("/uploads")) {
+        return { ...config, theme: { ...config.theme, logoUrl: `${API_BASE_URL}${logoUrl}` } };
+    }
+
+    return config;
+}
+
+// Function เปิดใช้งานอุปกรณ์ด้วย activation code (POST /client/activate)
+function activateDevice(body: ActivateRequest): Promise<ActivateResponse> {
+    return clientRequest<ActivateResponse>("/client/activate", { method: "POST", body: { code: body.code.trim() } });
+}
+
+// Function ส่ง heartbeat ของอุปกรณ์ (POST /client/heartbeat)
+function postHeartbeat(body: HeartbeatRequest): Promise<HeartbeatResponse> {
+    return clientRequest<HeartbeatResponse>("/client/heartbeat", { method: "POST", body });
+}
+
+// Function ค้นหารายการจอดด้วยทะเบียนอย่างน้อย 4 ตัวอักษร (อาจได้ผลหลายคัน)
+function lookupTransactionByPlate(plateNo: string): Promise<ClientTransactionLookupResponse> {
+    return clientRequest<ClientTransactionLookupResponse>("/client/transactions", { method: "GET", query: { plateNo: plateNo.trim() } });
+}
+
+// Function ดึงรายการจอดด้วย transaction id (GET /client/transactions/:id)
+function getTransactionById(transactionId: string): Promise<ClientTransaction> {
+    return clientRequest<ClientTransaction>(`/client/transactions/${encodeURIComponent(transactionId)}`, { method: "GET" });
+}
+
+// Function ตรวจว่าผลค้นหาเป็นทะเบียนที่ตรงหลายคัน
+function isPlateLookupMultiple(result: ClientTransactionLookupResponse): result is ClientPlateLookupMultiple {
+    return "matchType" in result && result.matchType === "multiple";
+}
+
+// Function ดึงวิธีชำระที่ช่องทางนี้ใช้ได้ (เรียกทุกครั้งก่อนแสดงหน้าเลือกวิธีชำระ)
+function getPaymentMethods(): Promise<ClientPaymentMethodsResponse> {
+    return clientRequest<ClientPaymentMethodsResponse>("/client/payments/methods", { method: "GET" });
+}
+
+// Function สร้าง QR PromptPay (POST /client/payments/charges ส่งเฉพาะ plateNo / transactionId / method / returnUri ห้ามส่ง amount / token / source)
+function createPromptPayCharge(body: CreateChargeRequest): Promise<CreateChargeResponse> {
+    return clientRequest<CreateChargeResponse>("/client/payments/charges", {
+        method: "POST",
+        body: {
+            plateNo: body.plateNo,
+            method: "promptpay",
+            ...(body.transactionId ? { transactionId: body.transactionId } : {}),
+            ...(body.returnUri ? { returnUri: body.returnUri } : {}),
+        },
+    });
+}
+
+// Function สร้าง URL รูป QR ของ charge บน Backend ที่ใช้เป็น <img src> ได้ (เฉพาะ charge ที่ยังรอจ่าย)
+function getChargeQrImageUrl(chargeId: string): string {
+    return buildApiUrl(`/client/payments/charges/${encodeURIComponent(chargeId)}/qr`);
+}
+
+// Function บันทึกการชำระด้วยบัตรหลังเครื่อง EDC อนุมัติแล้ว (POST /client/payments/edc)
+function recordEdcPayment(body: EdcPaymentRequest): Promise<EdcPaymentResponse> {
+    return clientRequest<EdcPaymentResponse>("/client/payments/edc", { method: "POST", body });
+}
+
+// Function จำลองให้ QR PromptPay จ่ายสำเร็จของ Dev Test (POST /payment-gateway/omise/simulate-paid ต้องเปิด ENABLE_PAYMENT_SIMULATION ที่ Backend)
+// ผลจริงส่งมาทาง payments:updated ของ Socket.IO เหมือนลูกค้าสแกนจ่าย
+function simulatePaidCharge(body: SimulatePaidRequest): Promise<SimulatePaidResponse> {
+    const simulationToken = (process.env.NEXT_PUBLIC_PAYMENT_SIMULATION_TOKEN ?? "").trim();
+
+    return clientRequest<SimulatePaidResponse>("/payment-gateway/omise/simulate-paid", {
+        method: "POST",
+        body: { chargeId: body.chargeId },
+        ...(simulationToken ? { headers: { "x-simulation-token": simulationToken } } : {}),
+    });
+}
+
+export { ACTIVATE_PATH, API_BASE_URL, ApiClientError, DEVICE_AUTH_LIMIT_CODE, MAINTENANCE_PATH, NETWORK_ERROR_CODE, activateDevice, buildApiUrl, createPromptPayCharge, createResponseError, getChargeQrImageUrl, getClientConfig, getPaymentMethods, getTransactionById, handleDeviceAccessError, handleDeviceRevoked, hasErrorCode, isPlateLookupMultiple, lookupTransactionByPlate, parseRetryAfterMs, postHeartbeat, recordEdcPayment, resetDeviceToActivation, simulatePaidCharge, toApiErrorResponse };

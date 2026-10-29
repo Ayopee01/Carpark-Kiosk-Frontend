@@ -1,0 +1,167 @@
+# CI/CD
+# - pull request เข้า main และ push เข้า main: lint, typecheck, test, build
+# - push เข้า main: build Docker image -> push ไป GHCR -> SSH เข้า server แล้ว docker compose up
+#   ข้ามการ deploy (ไม่ fail) ถ้ายังไม่ได้ตั้ง secret DEPLOY_HOST ตั้งครบเมื่อไรจะ deploy เองโดยไม่ต้องแก้ไฟล์นี้
+#
+# ตั้งใน GitHub (Settings -> Environments -> production):
+#   Variables: NEXT_PUBLIC_API_BASE_URL  origin ของ API เช่น https://api.<domain> (ฝังตอน build ตั้งใน .env บน server ไม่มีผล)
+#              DEPLOY_PATH               โฟลเดอร์บน server ที่เก็บ docker-compose.yml
+#   Secrets:   DEPLOY_HOST, DEPLOY_PORT (ไม่ตั้ง = 22), DEPLOY_USER, DEPLOY_SSH_KEY
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # ยกเลิกเฉพาะ run ของ pull request ที่ถูกแทนด้วย commit ใหม่ ห้ามตัด deploy กลางทาง
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      # ค่าจริงฝังตอน build image ใน job deploy ส่วนการตรวจใช้ค่าตัวอย่าง
+      NEXT_PUBLIC_API_BASE_URL: https://api.example.invalid
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to server
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      # if: อ่าน secrets ตรง ๆ ไม่ได้ ต้องผ่าน env ก่อน
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+    steps:
+      - name: Skip (no server yet)
+        if: env.DEPLOY_HOST == ''
+        run: echo "::notice::ยังไม่ได้ตั้ง secret DEPLOY_HOST ข้ามการ deploy"
+
+      - name: Check settings
+        if: env.DEPLOY_HOST != ''
+        env:
+          API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          missing=""
+          [ -n "$API_BASE_URL" ] || missing="$missing NEXT_PUBLIC_API_BASE_URL"
+          [ -n "$DEPLOY_PATH" ] || missing="$missing DEPLOY_PATH"
+          if [ -n "$missing" ]; then
+            echo "::error::ยังไม่ได้ตั้ง variable ใน environment production:$missing"
+            exit 1
+          fi
+
+      - name: Checkout
+        if: env.DEPLOY_HOST != ''
+        uses: actions/checkout@v7
+
+      - name: Image name
+        if: env.DEPLOY_HOST != ''
+        id: name
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "image=$repo:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        if: env.DEPLOY_HOST != ''
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        if: env.DEPLOY_HOST != ''
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        if: env.DEPLOY_HOST != ''
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+          tags: |
+            ${{ steps.name.outputs.image }}
+            ${{ steps.name.outputs.repo }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Copy docker-compose.yml
+        if: env.DEPLOY_HOST != ''
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: docker-compose.yml
+          target: ${{ vars.DEPLOY_PATH }}
+
+      - name: Pull and restart
+        if: env.DEPLOY_HOST != ''
+        uses: appleboy/ssh-action@v1
+        env:
+          KIOSK_IMAGE: ${{ steps.name.outputs.image }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: KIOSK_IMAGE,DEPLOY_PATH,GHCR_USER,GHCR_TOKEN
+          script: |
+            set -e
+            cd "$DEPLOY_PATH"
+            # GITHUB_TOKEN ใช้ได้แค่ระหว่าง job นี้ จึง logout ทันทีหลัง pull
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            KIOSK_IMAGE="$KIOSK_IMAGE" docker compose pull
+            docker logout ghcr.io
+            KIOSK_IMAGE="$KIOSK_IMAGE" docker compose up -d --wait --wait-timeout 120
+            echo "$KIOSK_IMAGE" > .deployed-image
+            docker image prune -f

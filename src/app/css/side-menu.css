@@ -1,0 +1,107 @@
+.sidebar {
+    position: fixed;
+    top: 113px;
+    right: 0;
+    height: calc(100% - 113px);
+    width: 280px;
+    background: var(--background);
+    z-index: 999;
+}
+
+/* Radix Dialog ใส่ data-state และรอ animation จบก่อนถอด Side Menu ออก */
+.sidebar[data-state="open"] {
+    animation: sidebar-slide-in 0.3s ease;
+}
+
+.sidebar[data-state="closed"] {
+    animation: sidebar-slide-out 0.3s ease;
+}
+
+@keyframes sidebar-slide-in {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes sidebar-slide-out {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(100%);
+    }
+}
+
+.sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+}
+
+/* menu */
+.langButton_side,
+.helpButton_side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+/* hover */
+.langButton_side:hover,
+.helpButton_side:hover {
+    color: var(--text-menu-nav);
+    transition: all 0.2s ease;
+}
+
+/* overlay */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 998;
+}
+
+.overlay[data-state="open"] {
+    animation: overlay-fade-in 0.3s;
+}
+
+.overlay[data-state="closed"] {
+    animation: overlay-fade-out 0.3s;
+}
+
+@keyframes overlay-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes overlay-fade-out {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+/* responsive */
+@media (min-width: 768px) {
+    .overlay {
+        display: none;
+    }
+
+    .sidebar {
+        display: none;
+    }
+}

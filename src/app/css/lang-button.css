@@ -1,0 +1,72 @@
+.langDropdown {
+  position: relative;
+  width: 100%;
+}
+
+.langButton_side {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--bg-menu-nav);
+  border-radius: 12px;
+  background: var(--background);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.langButton_side svg {
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+.langButton_side[data-state="open"] svg {
+  transform: rotate(180deg);
+}
+
+/* ตำแหน่งของเมนูมาจาก Radix DropdownMenu (กว้างเท่าปุ่ม) */
+.langDropdownMenu {
+  display: flex;
+  flex-direction: column;
+  width: var(--radix-dropdown-menu-trigger-width);
+  background: var(--background);
+  border-radius: 12px;
+  border: 1px solid var(--bg-menu-nav);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.langDropdownItem {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid #f1f1f1;
+  background: #fff;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.3s ease;
+}
+
+.langDropdownItem:last-child {
+  border-bottom: none;
+}
+
+.langDropdownItem:hover,
+.langDropdownItem[data-highlighted] {
+  background: var(--bg-hover-lang-btn);
+}
+
+.langDropdownItem[data-state="checked"] {
+  background: var(--bg-active-lang-btn);
+  font-weight: 700;
+  color: var(--text-menu-nav);
+}
